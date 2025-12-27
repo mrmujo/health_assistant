@@ -2,6 +2,10 @@
 
 A personal health assistant that connects to your Garmin Connect account and uses AI to analyze your health data. Get insights about your sleep, activity, stress levels, and more through natural conversation.
 
+## Important note
+
+This is 100% vibecoded, use at your own discretion.
+
 ## Features
 
 - **Garmin Connect Integration** - Sync sleep, activity, stress, and body battery data
