@@ -22,7 +22,7 @@
 	let currentConversation = $state<{ id: number; title: string | null } | null>(null);
 	let input = $state('');
 	let isLoading = $state(false);
-	let showSidebar = $state(true);
+	let showSidebar = $state(typeof window !== 'undefined' ? window.innerWidth > 768 : true);
 	let messagesContainer: HTMLDivElement;
 	let textareaRef: HTMLTextAreaElement;
 
@@ -658,6 +658,10 @@
 	}
 
 	@media (max-width: 768px) {
+		.chat-layout {
+			height: calc(100vh - 8rem);
+		}
+
 		.sidebar {
 			position: absolute;
 			left: 0;
@@ -665,14 +669,61 @@
 			bottom: 0;
 			z-index: 20;
 			margin-right: 0;
+			width: 260px;
 		}
 
 		.sidebar.collapsed {
 			transform: translateX(-100%);
+			width: 0;
+		}
+
+		.sidebar-toggle {
+			left: 0;
+			z-index: 21;
 		}
 
 		.sidebar:not(.collapsed) ~ .sidebar-toggle {
-			left: 280px;
+			left: 260px;
+		}
+
+		.chat-main {
+			max-width: 100%;
+		}
+
+		.chat-header h1 {
+			font-size: 1.25rem;
+		}
+
+		.message-content {
+			max-width: 90%;
+		}
+
+		.chat-input {
+			flex-direction: column;
+			gap: 0.5rem;
+		}
+
+		.chat-input .btn {
+			width: 100%;
+			height: auto;
+			padding: 0.75rem;
+		}
+
+		.chat-textarea {
+			min-height: 50px;
+		}
+
+		.welcome {
+			padding: 1rem;
+		}
+
+		.suggestions {
+			flex-direction: column;
+		}
+
+		.suggestion {
+			width: 100%;
+			text-align: left;
 		}
 	}
 </style>
