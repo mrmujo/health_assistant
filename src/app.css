@@ -1,0 +1,206 @@
+:root {
+	--color-bg: #0f0f0f;
+	--color-bg-secondary: #1a1a1a;
+	--color-bg-tertiary: #252525;
+	--color-text: #e5e5e5;
+	--color-text-secondary: #a3a3a3;
+	--color-primary: #3b82f6;
+	--color-primary-hover: #2563eb;
+	--color-success: #22c55e;
+	--color-warning: #eab308;
+	--color-error: #ef4444;
+	--color-danger: #ef4444;
+	--color-border: #333;
+	--radius: 8px;
+	--radius-lg: 12px;
+}
+
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html, body {
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+	background: var(--color-bg);
+	color: var(--color-text);
+	min-height: 100vh;
+}
+
+a {
+	color: var(--color-primary);
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+button {
+	cursor: pointer;
+	font-family: inherit;
+}
+
+input, textarea, select {
+	font-family: inherit;
+	font-size: 1rem;
+}
+
+.container {
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 0 1rem;
+}
+
+/* Card component */
+.card {
+	background: var(--color-bg-secondary);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-lg);
+	padding: 1.5rem;
+}
+
+.card-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 1rem;
+}
+
+.card-title {
+	font-size: 1.125rem;
+	font-weight: 600;
+}
+
+/* Button styles */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.625rem 1rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	border-radius: var(--radius);
+	border: none;
+	transition: all 0.15s ease;
+}
+
+.btn-primary {
+	background: var(--color-primary);
+	color: white;
+}
+
+.btn-primary:hover {
+	background: var(--color-primary-hover);
+}
+
+.btn-secondary {
+	background: var(--color-bg-tertiary);
+	color: var(--color-text);
+	border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+	background: var(--color-border);
+}
+
+/* Input styles */
+.input {
+	width: 100%;
+	padding: 0.625rem 0.875rem;
+	background: var(--color-bg-tertiary);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+	color: var(--color-text);
+	transition: border-color 0.15s ease;
+}
+
+.input:focus {
+	outline: none;
+	border-color: var(--color-primary);
+}
+
+.input::placeholder {
+	color: var(--color-text-secondary);
+}
+
+/* Form group */
+.form-group {
+	margin-bottom: 1rem;
+}
+
+.form-label {
+	display: block;
+	margin-bottom: 0.5rem;
+	font-size: 0.875rem;
+	font-weight: 500;
+	color: var(--color-text-secondary);
+}
+
+/* Status badges */
+.badge {
+	display: inline-flex;
+	align-items: center;
+	padding: 0.25rem 0.625rem;
+	font-size: 0.75rem;
+	font-weight: 500;
+	border-radius: 9999px;
+}
+
+.badge-success {
+	background: rgba(34, 197, 94, 0.15);
+	color: var(--color-success);
+}
+
+.badge-warning {
+	background: rgba(234, 179, 8, 0.15);
+	color: var(--color-warning);
+}
+
+.badge-error {
+	background: rgba(239, 68, 68, 0.15);
+	color: var(--color-error);
+}
+
+/* Stat display */
+.stat {
+	text-align: center;
+}
+
+.stat-value {
+	font-size: 2rem;
+	font-weight: 700;
+	line-height: 1.2;
+}
+
+.stat-label {
+	font-size: 0.875rem;
+	color: var(--color-text-secondary);
+	margin-top: 0.25rem;
+}
+
+/* Grid layouts */
+.grid {
+	display: grid;
+	gap: 1rem;
+}
+
+.grid-2 {
+	grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+	grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-4 {
+	grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 768px) {
+	.grid-2, .grid-3, .grid-4 {
+		grid-template-columns: 1fr;
+	}
+}
