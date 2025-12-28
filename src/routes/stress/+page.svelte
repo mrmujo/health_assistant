@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
+	import LineChart from '$lib/components/charts/LineChart.svelte';
+	import PieChart from '$lib/components/charts/PieChart.svelte';
 
 	let { data } = $props();
 
@@ -66,6 +68,70 @@
 				<div class="stat">
 					<div class="stat-value">{formatMinutes(data.avgHighStress)}</div>
 					<div class="stat-label">Avg High Stress</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="charts-section">
+			<div class="grid grid-2">
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Stress Level Trend</h2>
+					</div>
+					<LineChart
+						labels={data.chartData.labels}
+						data={data.chartData.avgStress}
+						color="#eab308"
+						fill={false}
+					/>
+				</div>
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Body Battery Trend</h2>
+					</div>
+					<LineChart
+						labels={data.chartData.labels}
+						data={data.chartData.bodyBatteryEnd}
+						color="#22c55e"
+					/>
+				</div>
+			</div>
+			<div class="grid grid-2">
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Weekly Stress Distribution (hours)</h2>
+					</div>
+					<PieChart
+						labels={['Rest', 'Low', 'Medium', 'High']}
+						data={[
+							Math.round(data.weeklyStressMinutes.rest / 60 * 10) / 10,
+							Math.round(data.weeklyStressMinutes.low / 60 * 10) / 10,
+							Math.round(data.weeklyStressMinutes.medium / 60 * 10) / 10,
+							Math.round(data.weeklyStressMinutes.high / 60 * 10) / 10
+						]}
+						colors={['#22c55e', '#84cc16', '#eab308', '#ef4444']}
+						height={220}
+					/>
+				</div>
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Charge vs Drain</h2>
+					</div>
+					<div class="charge-drain-chart">
+						{#each data.chartData.labels as label, i}
+							<div class="charge-drain-bar">
+								<span class="bar-date">{label}</span>
+								<div class="bar-container">
+									<div class="bar charged" style="width: {(data.chartData.bodyBatteryCharged[i] || 0)}%"></div>
+									<div class="bar drained" style="width: {(data.chartData.bodyBatteryDrained[i] || 0)}%"></div>
+								</div>
+							</div>
+						{/each}
+						<div class="charge-drain-legend">
+							<span><span class="dot charged"></span> Charged</span>
+							<span><span class="dot drained"></span> Drained</span>
+						</div>
+					</div>
 				</div>
 			</div>
 		</section>
@@ -358,5 +424,81 @@
 		text-align: center;
 		padding: 3rem;
 		color: var(--color-text-secondary);
+	}
+
+	.charts-section {
+		margin-bottom: 1.5rem;
+	}
+
+	.charts-section .grid {
+		margin-bottom: 1rem;
+	}
+
+	.charge-drain-chart {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.charge-drain-bar {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.bar-date {
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+		width: 50px;
+		flex-shrink: 0;
+	}
+
+	.bar-container {
+		flex: 1;
+		display: flex;
+		gap: 2px;
+		height: 16px;
+	}
+
+	.bar {
+		height: 100%;
+		border-radius: 3px;
+		transition: width 0.3s ease;
+	}
+
+	.bar.charged {
+		background: #22c55e;
+	}
+
+	.bar.drained {
+		background: #ef4444;
+	}
+
+	.charge-drain-legend {
+		display: flex;
+		gap: 1rem;
+		margin-top: 0.75rem;
+		font-size: 0.75rem;
+		color: var(--color-text-secondary);
+	}
+
+	.charge-drain-legend span {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+	}
+
+	.dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+	}
+
+	.dot.charged {
+		background: #22c55e;
+	}
+
+	.dot.drained {
+		background: #ef4444;
 	}
 </style>

@@ -43,11 +43,36 @@ export const load: PageServerLoad = async () => {
 		}
 	}
 
+	// Prepare chart data (reverse to show oldest first)
+	const chartRecords = [...stressRecords].reverse();
+	const chartLabels = chartRecords.map((s) => {
+		const date = new Date(s.date);
+		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+	});
+
+	const chartData = {
+		labels: chartLabels,
+		avgStress: chartRecords.map((s) => s.avgStress),
+		bodyBatteryEnd: chartRecords.map((s) => s.bodyBatteryEnd),
+		bodyBatteryCharged: chartRecords.map((s) => s.bodyBatteryCharged),
+		bodyBatteryDrained: chartRecords.map((s) => s.bodyBatteryDrained)
+	};
+
+	// Weekly stress distribution totals
+	const weeklyStressMinutes = {
+		rest: last7Days.reduce((sum, s) => sum + (s.restStressMinutes || 0), 0),
+		low: last7Days.reduce((sum, s) => sum + (s.lowStressMinutes || 0), 0),
+		medium: last7Days.reduce((sum, s) => sum + (s.mediumStressMinutes || 0), 0),
+		high: last7Days.reduce((sum, s) => sum + (s.highStressMinutes || 0), 0)
+	};
+
 	return {
 		stressData: stressRecords,
 		avgStress,
 		avgBodyBattery,
 		avgLowStress,
-		avgHighStress
+		avgHighStress,
+		chartData,
+		weeklyStressMinutes
 	};
 };

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
+	import LineChart from '$lib/components/charts/LineChart.svelte';
 
 	let { data } = $props();
 
@@ -133,6 +134,42 @@
 				<div class="stat">
 					<div class="stat-value">{data.avgCalories?.toLocaleString() ?? '--'}</div>
 					<div class="stat-label">Avg Calories</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="charts-section">
+			<div class="grid grid-3">
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Steps Trend</h2>
+					</div>
+					<LineChart
+						labels={data.chartData.labels}
+						data={data.chartData.steps}
+						color="#22c55e"
+					/>
+				</div>
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Resting Heart Rate</h2>
+					</div>
+					<LineChart
+						labels={data.chartData.labels}
+						data={data.chartData.restingHR}
+						color="#ef4444"
+						fill={false}
+					/>
+				</div>
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Calories Burned</h2>
+					</div>
+					<LineChart
+						labels={data.chartData.labels}
+						data={data.chartData.calories}
+						color="#f97316"
+					/>
 				</div>
 			</div>
 		</section>
@@ -451,6 +488,16 @@
 		text-align: center;
 		padding: 3rem;
 		color: var(--color-text-secondary);
+	}
+
+	.charts-section {
+		margin-bottom: 1.5rem;
+	}
+
+	@media (max-width: 1024px) {
+		.charts-section .grid-3 {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	@media (max-width: 640px) {

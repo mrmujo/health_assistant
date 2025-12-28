@@ -6,6 +6,20 @@ A personal health assistant that connects to your Garmin Connect account and use
 
 This is 100% vibecoded, use at your own discretion.
 
+## Screenshots
+
+![Dashboard](screenshots/screenshot-2025-12-28_09-54-37.png)
+*Dashboard with daily health metrics and sleep overview*
+
+![Chat](screenshots/screenshot-2025-12-28_09-55-18.png)
+*AI chat with conversation history*
+
+![Activity](screenshots/screenshot-2025-12-28_09-55-37.png)
+*Activity page with trend charts for steps, heart rate, and calories*
+
+![Stress](screenshots/screenshot-2025-12-28_09-55-57.png)
+*Stress & Body Battery with trend lines, weekly distribution, and charge vs drain*
+
 ## Features
 
 - **Garmin Connect Integration** - Sync sleep, activity, stress, and body battery data

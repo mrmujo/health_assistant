@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
+	import LineChart from '$lib/components/charts/LineChart.svelte';
+	import PieChart from '$lib/components/charts/PieChart.svelte';
 
 	let { data } = $props();
 
@@ -66,6 +68,58 @@
 				<div class="stat">
 					<div class="stat-value">{data.avgRemPct ?? '--'}%</div>
 					<div class="stat-label">Avg REM Sleep</div>
+				</div>
+			</div>
+		</section>
+
+		<section class="charts-section">
+			<div class="grid grid-2">
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Sleep Score Trend</h2>
+					</div>
+					<LineChart
+						labels={data.chartData.labels}
+						data={data.chartData.sleepScores}
+						title=""
+						color="#22c55e"
+					/>
+				</div>
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Sleep Duration (hours)</h2>
+					</div>
+					<LineChart
+						labels={data.chartData.labels}
+						data={data.chartData.durations}
+						title=""
+						color="#8b5cf6"
+					/>
+				</div>
+			</div>
+			<div class="grid grid-2">
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Heart Rate During Sleep</h2>
+					</div>
+					<LineChart
+						labels={data.chartData.labels}
+						data={data.chartData.avgHrSleep}
+						title=""
+						color="#ef4444"
+						fill={false}
+					/>
+				</div>
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">Weekly Sleep Stages (hours)</h2>
+					</div>
+					<PieChart
+						labels={data.sleepStages.labels}
+						data={data.sleepStages.data}
+						colors={['#6366f1', '#8b5cf6', '#ec4899', '#f97316']}
+						height={220}
+					/>
 				</div>
 			</div>
 		</section>
@@ -257,5 +311,13 @@
 		text-align: center;
 		padding: 3rem;
 		color: var(--color-text-secondary);
+	}
+
+	.charts-section {
+		margin-bottom: 1.5rem;
+	}
+
+	.charts-section .grid {
+		margin-bottom: 1rem;
 	}
 </style>

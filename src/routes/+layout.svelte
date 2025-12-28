@@ -10,6 +10,7 @@
 		{ href: '/sleep', label: 'Sleep', icon: '😴' },
 		{ href: '/activity', label: 'Activity', icon: '🏃' },
 		{ href: '/stress', label: 'Stress', icon: '🧘' },
+		{ href: '/insights', label: 'Insights', icon: '🔮' },
 		{ href: '/logs', label: 'Logs', icon: '📝' },
 		{ href: '/settings', label: 'Settings', icon: '⚙️' }
 	];

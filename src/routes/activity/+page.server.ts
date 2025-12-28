@@ -50,12 +50,34 @@ export const load: PageServerLoad = async () => {
 		}
 	}
 
+	// Prepare chart data (reverse to show oldest first)
+	const chartRecords = [...activityRecords].reverse();
+	const chartLabels = chartRecords.map((s) => {
+		const date = new Date(s.date);
+		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+	});
+
+	const chartData = {
+		labels: chartLabels,
+		steps: chartRecords.map((s) => s.steps),
+		restingHR: chartRecords.map((s) => s.restingHeartRate),
+		calories: chartRecords.map((s) => s.totalCalories)
+	};
+
+	// Weekly totals for bar chart
+	const weeklySteps = last7Days.map((s) => ({
+		label: new Date(s.date).toLocaleDateString('en-US', { weekday: 'short' }),
+		value: s.steps || 0
+	})).reverse();
+
 	return {
 		activityData: activityRecords,
 		stressData: stressRecords,
 		avgSteps,
 		avgRestingHR,
 		avgBodyBattery,
-		avgCalories
+		avgCalories,
+		chartData,
+		weeklySteps
 	};
 };

@@ -47,11 +47,43 @@ export const load: PageServerLoad = async () => {
 		}
 	}
 
+	// Prepare chart data (reverse to show oldest first)
+	const chartRecords = [...sleepRecords].reverse();
+	const chartLabels = chartRecords.map((s) => {
+		const date = new Date(s.date);
+		return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+	});
+
+	const chartData = {
+		labels: chartLabels,
+		sleepScores: chartRecords.map((s) => s.sleepScore),
+		durations: chartRecords.map((s) => s.durationSeconds ? Math.round(s.durationSeconds / 3600 * 10) / 10 : null),
+		avgHrSleep: chartRecords.map((s) => s.avgHrSleep)
+	};
+
+	// Calculate weekly sleep stage totals for pie chart
+	const totalDeep = last7Days.reduce((sum, s) => sum + (s.deepSleepSeconds || 0), 0);
+	const totalLight = last7Days.reduce((sum, s) => sum + (s.lightSleepSeconds || 0), 0);
+	const totalRem = last7Days.reduce((sum, s) => sum + (s.remSleepSeconds || 0), 0);
+	const totalAwake = last7Days.reduce((sum, s) => sum + (s.awakeSeconds || 0), 0);
+
+	const sleepStages = {
+		labels: ['Deep', 'Light', 'REM', 'Awake'],
+		data: [
+			Math.round(totalDeep / 3600 * 10) / 10,
+			Math.round(totalLight / 3600 * 10) / 10,
+			Math.round(totalRem / 3600 * 10) / 10,
+			Math.round(totalAwake / 3600 * 10) / 10
+		]
+	};
+
 	return {
 		sleepData: sleepRecords,
 		avgSleepScore,
 		avgDuration,
 		avgDeepPct,
-		avgRemPct
+		avgRemPct,
+		chartData,
+		sleepStages
 	};
 };
