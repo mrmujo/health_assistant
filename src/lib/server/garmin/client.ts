@@ -151,7 +151,13 @@ export const garminClient = {
 		runPythonCommand('sync_all', { start_date: startDate, end_date: endDate }),
 
 	fetchActivities: (date: string): Promise<GarminResult<Activity[]>> =>
-		runPythonCommand('fetch_activities', { date })
+		runPythonCommand('fetch_activities', { date }),
+
+	fetchActivitiesBatch: (
+		startDate: string,
+		endDate: string
+	): Promise<GarminResult<Record<string, Activity[]>>> =>
+		runPythonCommand('fetch_activities_batch', { start_date: startDate, end_date: endDate })
 };
 
 interface Activity {

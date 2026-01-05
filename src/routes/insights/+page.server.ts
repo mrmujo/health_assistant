@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db/client';
-import { sleepData, activitySummary, stressData } from '$lib/server/db/schema';
+import { sleepData, activitySummary, stressData, activityRpe } from '$lib/server/db/schema';
 import { desc } from 'drizzle-orm';
 
 // Calculate Pearson correlation coefficient
@@ -31,16 +31,32 @@ function getCorrelationStrength(r: number): { label: string; color: string } {
 
 export const load: PageServerLoad = async () => {
 	// Fetch last 30 days of data for better correlation analysis
-	const [sleepRecords, activityRecords, stressRecords] = await Promise.all([
+	const [sleepRecords, activityRecords, stressRecords, rpeRecords] = await Promise.all([
 		db.select().from(sleepData).orderBy(desc(sleepData.date)).limit(30),
 		db.select().from(activitySummary).orderBy(desc(activitySummary.date)).limit(30),
-		db.select().from(stressData).orderBy(desc(stressData.date)).limit(30)
+		db.select().from(stressData).orderBy(desc(stressData.date)).limit(30),
+		db.select().from(activityRpe).orderBy(desc(activityRpe.date)).limit(100)
 	]);
 
 	// Create date-indexed maps for easier joining
 	const sleepByDate = new Map(sleepRecords.map(s => [s.date, s]));
 	const activityByDate = new Map(activityRecords.map(a => [a.date, a]));
 	const stressByDate = new Map(stressRecords.map(s => [s.date, s]));
+
+	// Group RPE by date and calculate daily totals
+	const rpeByDate = new Map<string, { totalFatigue: number; avgRpe: number; count: number }>();
+	for (const rpe of rpeRecords) {
+		const existing = rpeByDate.get(rpe.date) || { totalFatigue: 0, avgRpe: 0, count: 0 };
+		existing.totalFatigue += rpe.fatigue || 0;
+		existing.avgRpe += rpe.rpe;
+		existing.count += 1;
+		rpeByDate.set(rpe.date, existing);
+	}
+	// Finalize RPE averages
+	for (const [date, data] of rpeByDate) {
+		data.avgRpe = data.avgRpe / data.count;
+		data.totalFatigue = Math.round(data.totalFatigue * 100) / 100;
+	}
 
 	// 1. Sleep Score vs Next-Day Body Battery
 	const sleepVsEnergy: { x: number; y: number }[] = [];
@@ -101,6 +117,32 @@ export const load: PageServerLoad = async () => {
 		caloriesVsRecovery.map(p => p.y)
 	);
 
+	// 5. RPE Fatigue vs Body Battery Drain
+	const fatigueVsDrain: { x: number; y: number }[] = [];
+	for (const [date, rpeData] of rpeByDate) {
+		const stress = stressByDate.get(date);
+		if (stress?.bodyBatteryDrained !== null && stress?.bodyBatteryDrained !== undefined) {
+			fatigueVsDrain.push({ x: rpeData.totalFatigue, y: stress.bodyBatteryDrained });
+		}
+	}
+	const fatigueDrainCorr = calculateCorrelation(
+		fatigueVsDrain.map(p => p.x),
+		fatigueVsDrain.map(p => p.y)
+	);
+
+	// 6. RPE Fatigue vs Sleep Score (same night)
+	const fatigueVsSleep: { x: number; y: number }[] = [];
+	for (const [date, rpeData] of rpeByDate) {
+		const sleep = sleepByDate.get(date);
+		if (sleep?.sleepScore !== null && sleep?.sleepScore !== undefined) {
+			fatigueVsSleep.push({ x: rpeData.totalFatigue, y: sleep.sleepScore });
+		}
+	}
+	const fatigueSleepCorr = calculateCorrelation(
+		fatigueVsSleep.map(p => p.x),
+		fatigueVsSleep.map(p => p.y)
+	);
+
 	return {
 		correlations: [
 			{
@@ -146,6 +188,28 @@ export const load: PageServerLoad = async () => {
 				correlation: caloriesRecoveryCorr,
 				strength: getCorrelationStrength(caloriesRecoveryCorr),
 				color: '#f97316'
+			},
+			{
+				id: 'fatigue-drain',
+				title: 'RPE Fatigue vs Body Battery Drain',
+				description: 'Does higher perceived exertion correlate with more energy drain?',
+				xLabel: 'RPE Fatigue Score',
+				yLabel: 'Body Battery Drained',
+				data: fatigueVsDrain,
+				correlation: fatigueDrainCorr,
+				strength: getCorrelationStrength(fatigueDrainCorr),
+				color: '#ef4444'
+			},
+			{
+				id: 'fatigue-sleep',
+				title: 'RPE Fatigue vs Sleep Quality',
+				description: 'Does training harder affect your sleep that night?',
+				xLabel: 'RPE Fatigue Score',
+				yLabel: 'Sleep Score',
+				data: fatigueVsSleep,
+				correlation: fatigueSleepCorr,
+				strength: getCorrelationStrength(fatigueSleepCorr),
+				color: '#8b5cf6'
 			}
 		],
 		hasData: sleepRecords.length > 0 && activityRecords.length > 0 && stressRecords.length > 0

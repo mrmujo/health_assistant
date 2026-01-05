@@ -274,6 +274,46 @@ def fetch_activities(target_date: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
+def fetch_activities_batch(start_date: str, end_date: str) -> dict:
+    """Fetch individual activities for a date range in a single API call."""
+    try:
+        client = get_client()
+        # Get all activities for the date range
+        activities = client.get_activities_by_date(start_date, end_date)
+
+        # Group activities by date
+        activities_by_date = {}
+        for act in activities:
+            # Extract date from startTimeLocal (format: "2024-01-15 08:30:00")
+            start_time = act.get("startTimeLocal", "")
+            act_date = start_time.split(" ")[0] if start_time else None
+
+            if not act_date:
+                continue
+
+            if act_date not in activities_by_date:
+                activities_by_date[act_date] = []
+
+            activities_by_date[act_date].append({
+                "activityId": act.get("activityId"),
+                "activityName": act.get("activityName"),
+                "activityType": act.get("activityType", {}).get("typeKey") if isinstance(act.get("activityType"), dict) else None,
+                "startTimeLocal": act.get("startTimeLocal"),
+                "duration": act.get("duration"),
+                "distance": act.get("distance"),
+                "calories": act.get("calories"),
+                "averageHR": act.get("averageHR"),
+                "maxHR": act.get("maxHR"),
+                "averageSpeed": act.get("averageSpeed"),
+                "elevationGain": act.get("elevationGain"),
+                "steps": act.get("steps"),
+            })
+
+        return {"success": True, "data": activities_by_date}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def sync_all(start_date: str, end_date: str) -> dict:
     """Sync all data types for a date range."""
     try:
@@ -376,6 +416,7 @@ def main():
         "fetch_body_battery": lambda: fetch_body_battery(args.get("date", "")),
         "fetch_heart_rate": lambda: fetch_heart_rate(args.get("date", "")),
         "fetch_activities": lambda: fetch_activities(args.get("date", "")),
+        "fetch_activities_batch": lambda: fetch_activities_batch(args.get("start_date", ""), args.get("end_date", "")),
         "sync_all": lambda: sync_all(args.get("start_date", ""), args.get("end_date", "")),
     }
 

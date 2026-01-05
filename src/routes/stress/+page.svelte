@@ -45,7 +45,7 @@
 	</header>
 
 	{#if data.stressData.length > 0}
-		<section class="grid grid-4">
+		<section class="grid grid-5">
 			<div class="card stat-card">
 				<div class="stat">
 					<div class="stat-value">{data.avgStress ?? '--'}</div>
@@ -70,10 +70,16 @@
 					<div class="stat-label">Avg High Stress</div>
 				</div>
 			</div>
+			<div class="card stat-card">
+				<div class="stat">
+					<div class="stat-value" style="color: #f97316">{data.avgFatigue ?? '--'}</div>
+					<div class="stat-label">Avg RPE Fatigue</div>
+				</div>
+			</div>
 		</section>
 
 		<section class="charts-section">
-			<div class="grid grid-2">
+			<div class="grid grid-3">
 				<div class="card">
 					<div class="card-header">
 						<h2 class="card-title">Stress Level Trend</h2>
@@ -94,6 +100,24 @@
 						data={data.chartData.bodyBatteryEnd}
 						color="#22c55e"
 					/>
+				</div>
+				<div class="card">
+					<div class="card-header">
+						<h2 class="card-title">RPE Fatigue Trend</h2>
+					</div>
+					{#if data.fatigueChartData.some((v: number | null) => v !== null)}
+						<LineChart
+							labels={data.chartData.labels}
+							data={data.fatigueChartData}
+							color="#f97316"
+							fill={false}
+						/>
+					{:else}
+						<div class="empty-chart">
+							<p>No RPE data yet</p>
+							<p class="empty-hint">Add RPE ratings to activities to see fatigue trends</p>
+						</div>
+					{/if}
 				</div>
 			</div>
 			<div class="grid grid-2">
@@ -152,6 +176,11 @@
 								<span class="stress-badge" style="background: {stressLevel.color}20; color: {stressLevel.color}">
 									{stressLevel.label} ({day.avgStress ?? '--'})
 								</span>
+								{#if data.fatigueByDate[day.date]}
+									<span class="fatigue-badge">
+										RPE Fatigue: {data.fatigueByDate[day.date].totalFatigue}
+									</span>
+								{/if}
 								<button class="btn-analyze" onclick={() => analyzeDay(day.date)} title="Analyze with AI">
 									🔍
 								</button>
@@ -500,5 +529,58 @@
 
 	.dot.drained {
 		background: #ef4444;
+	}
+
+	.grid-5 {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 1rem;
+	}
+
+	.empty-chart {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 200px;
+		color: var(--color-text-secondary);
+		text-align: center;
+	}
+
+	.empty-chart p {
+		margin: 0;
+	}
+
+	.empty-hint {
+		font-size: 0.8125rem;
+		margin-top: 0.5rem !important;
+		opacity: 0.7;
+	}
+
+	.fatigue-badge {
+		padding: 0.25rem 0.75rem;
+		border-radius: 9999px;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		background: #f9731620;
+		color: #f97316;
+	}
+
+	@media (max-width: 1200px) {
+		.grid-5 {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+
+	@media (max-width: 768px) {
+		.grid-5 {
+			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	@media (max-width: 480px) {
+		.grid-5 {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>

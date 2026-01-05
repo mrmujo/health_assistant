@@ -1,7 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db/client';
-import { activitySummary, stressData } from '$lib/server/db/schema';
-import { desc } from 'drizzle-orm';
+import { activitySummary, stressData, activityRpe, rpeScales, activities } from '$lib/server/db/schema';
+import { desc, gte } from 'drizzle-orm';
+import { seedRpeData } from '$lib/server/rpe/seed';
 
 export const load: PageServerLoad = async () => {
 	// Fetch last 14 days of activity data
@@ -70,6 +71,69 @@ export const load: PageServerLoad = async () => {
 		value: s.steps || 0
 	})).reverse();
 
+	// Ensure RPE data is seeded
+	await seedRpeData();
+
+	// Fetch RPE data for last 14 days
+	const startDate = new Date();
+	startDate.setDate(startDate.getDate() - 14);
+	const startDateStr = startDate.toISOString().split('T')[0];
+
+	const rpeRecords = await db
+		.select()
+		.from(activityRpe)
+		.where(gte(activityRpe.date, startDateStr))
+		.orderBy(desc(activityRpe.date));
+
+	// Group RPE by date for quick lookup
+	const rpeByDate: Record<string, typeof rpeRecords> = {};
+	for (const record of rpeRecords) {
+		if (!rpeByDate[record.date]) {
+			rpeByDate[record.date] = [];
+		}
+		rpeByDate[record.date].push(record);
+	}
+
+	// Calculate daily RPE summaries
+	const rpeSummaryByDate: Record<string, { avgRpe: number; totalFatigue: number; count: number }> = {};
+	for (const [date, entries] of Object.entries(rpeByDate)) {
+		const totalRpe = entries.reduce((sum, e) => sum + e.rpe, 0);
+		const totalFatigue = entries.reduce((sum, e) => sum + (e.fatigue || 0), 0);
+		rpeSummaryByDate[date] = {
+			avgRpe: Math.round((totalRpe / entries.length) * 10) / 10,
+			totalFatigue: Math.round(totalFatigue * 100) / 100,
+			count: entries.length
+		};
+	}
+
+	// Get all RPE scales for the dropdown
+	const allRpeScales = await db.select().from(rpeScales).orderBy(rpeScales.activityType, rpeScales.rpeValue);
+
+	// Group scales by activity type
+	const scalesByType: Record<string, typeof allRpeScales> = {};
+	for (const scale of allRpeScales) {
+		if (!scalesByType[scale.activityType]) {
+			scalesByType[scale.activityType] = [];
+		}
+		scalesByType[scale.activityType].push(scale);
+	}
+
+	// Prefetch cached activities for last 14 days
+	const cachedActivities = await db
+		.select()
+		.from(activities)
+		.where(gte(activities.date, startDateStr))
+		.orderBy(desc(activities.date));
+
+	// Group by date for quick lookup
+	const activitiesByDate: Record<string, typeof cachedActivities> = {};
+	for (const act of cachedActivities) {
+		if (!activitiesByDate[act.date]) {
+			activitiesByDate[act.date] = [];
+		}
+		activitiesByDate[act.date].push(act);
+	}
+
 	return {
 		activityData: activityRecords,
 		stressData: stressRecords,
@@ -78,6 +142,10 @@ export const load: PageServerLoad = async () => {
 		avgBodyBattery,
 		avgCalories,
 		chartData,
-		weeklySteps
+		weeklySteps,
+		rpeByDate,
+		rpeSummaryByDate,
+		scalesByType,
+		activitiesByDate
 	};
 };

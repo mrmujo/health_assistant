@@ -24,6 +24,7 @@ export const sleepData = sqliteTable('sleep_data', {
 	avgRespirationRate: real('avg_respiration_rate'),
 	avgHrSleep: integer('avg_hr_sleep'),
 	rawData: text('raw_data'), // JSON blob for additional data
+	note: text('note'), // User notes about sleep
 	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
 });
 
@@ -122,6 +123,99 @@ export const chatConversations = sqliteTable('chat_conversations', {
 	updatedAt: integer('updated_at', { mode: 'timestamp' })
 });
 
+// RPE Scales - descriptions for each RPE level per activity type
+export const rpeScales = sqliteTable('rpe_scales', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	activityType: text('activity_type').notNull(), // running, cycling, swimming, strength, yoga
+	rpeValue: integer('rpe_value').notNull(), // 0-10
+	name: text('name').notNull(), // e.g., "Easy", "Hard"
+	description: text('description').notNull() // Full description
+});
+
+// RPE Multipliers - fatigue multipliers per activity type
+export const rpeMultipliers = sqliteTable('rpe_multipliers', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	activityType: text('activity_type').notNull(), // running, cycling, swimming, strength, yoga
+	useDurationScaling: integer('use_duration_scaling').notNull(), // 1 = use duration formula, 0 = constant
+	constantMultiplier: real('constant_multiplier'), // For strength/yoga: 1.2
+	durationHours: real('duration_hours'), // For running/cycling/swimming: reference duration
+	multiplier: real('multiplier'), // Multiplier value at this duration
+	interpretation: text('interpretation') // e.g., "Normal load", "Heavy endurance"
+});
+
+// Activity RPE - user-entered RPE for activities
+export const activityRpe = sqliteTable('activity_rpe', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	date: text('date').notNull(), // YYYY-MM-DD
+	activityId: text('activity_id'), // Garmin activity ID (optional)
+	activityType: text('activity_type').notNull(), // running, cycling, etc.
+	activityName: text('activity_name'),
+	duration: integer('duration'), // seconds
+	distance: real('distance'), // meters (for running, cycling, swimming)
+	rpe: integer('rpe').notNull(), // 0-10
+	note: text('note'), // User notes
+	fatigue: real('fatigue'), // Calculated: RPE × multiplier
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
+});
+
+// Cached activities from Garmin API
+export const activities = sqliteTable('activities', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	date: text('date').notNull(), // YYYY-MM-DD
+	activityId: text('activity_id').notNull().unique(),
+	activityType: text('activity_type'),
+	activityName: text('activity_name'),
+	duration: integer('duration'), // seconds
+	distance: real('distance'), // meters
+	calories: integer('calories'),
+	averageHR: integer('average_hr'),
+	maxHR: integer('max_hr'),
+	averageSpeed: real('average_speed'),
+	rawData: text('raw_data'), // JSON blob for additional data
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
+});
+
+// Training goals/events for coach feature
+export const trainingGoals = sqliteTable('training_goals', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	name: text('name').notNull(), // "Spring Marathon"
+	eventDate: text('event_date').notNull(), // YYYY-MM-DD
+	eventType: text('event_type').notNull(), // running, cycling, swimming, triathlon
+	distance: real('distance'), // meters (nullable for time-based events)
+	targetTime: integer('target_time'), // seconds (nullable for completion goals)
+	notes: text('notes'),
+	status: text('status').default('active'), // active, completed, cancelled
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
+});
+
+// AI-generated training plans (versioned - multiple per goal)
+export const trainingPlans = sqliteTable('training_plans', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	goalId: integer('goal_id').notNull(),
+	version: integer('version').notNull().default(1), // v1, v2, v3...
+	generatedAt: integer('generated_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+	planData: text('plan_data'), // JSON: full plan from AI
+	regenerateReason: text('regenerate_reason'), // Why this version was created
+	status: text('status').default('active') // active, superseded
+});
+
+// Individual workouts in a plan
+export const plannedWorkouts = sqliteTable('planned_workouts', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	planId: integer('plan_id').notNull(),
+	date: text('date').notNull(), // YYYY-MM-DD
+	workoutType: text('workout_type'), // easy, tempo, intervals, long, rest, recovery, brick
+	activityType: text('activity_type'), // running, cycling, swimming
+	description: text('description'), // "Easy 5km recovery run"
+	duration: integer('duration'), // planned seconds
+	distance: real('distance'), // planned meters
+	targetRpe: integer('target_rpe'), // 1-10
+	notes: text('notes'), // AI coaching notes
+	completed: integer('completed').default(0),
+	skipped: integer('skipped').default(0), // Track skipped workouts
+	completedActivityId: text('completed_activity_id') // link to actual activity
+});
+
 // Types for use in the application
 export type Settings = typeof settings.$inferSelect;
 export type SleepData = typeof sleepData.$inferSelect;
@@ -132,3 +226,10 @@ export type MedicationLog = typeof medicationLogs.$inferSelect;
 export type HealthNote = typeof healthNotes.$inferSelect;
 export type ChatMessage = typeof chatMessages.$inferSelect;
 export type ChatConversation = typeof chatConversations.$inferSelect;
+export type RpeScale = typeof rpeScales.$inferSelect;
+export type RpeMultiplier = typeof rpeMultipliers.$inferSelect;
+export type ActivityRpe = typeof activityRpe.$inferSelect;
+export type Activity = typeof activities.$inferSelect;
+export type TrainingGoal = typeof trainingGoals.$inferSelect;
+export type TrainingPlan = typeof trainingPlans.$inferSelect;
+export type PlannedWorkout = typeof plannedWorkouts.$inferSelect;

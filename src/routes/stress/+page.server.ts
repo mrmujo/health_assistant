@@ -1,7 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db/client';
-import { stressData } from '$lib/server/db/schema';
-import { desc } from 'drizzle-orm';
+import { stressData, activityRpe } from '$lib/server/db/schema';
+import { desc, gte } from 'drizzle-orm';
 
 export const load: PageServerLoad = async () => {
 	// Fetch last 14 days of stress data
@@ -66,6 +66,48 @@ export const load: PageServerLoad = async () => {
 		high: last7Days.reduce((sum, s) => sum + (s.highStressMinutes || 0), 0)
 	};
 
+	// Fetch RPE/fatigue data for last 14 days
+	const startDate = new Date();
+	startDate.setDate(startDate.getDate() - 14);
+	const startDateStr = startDate.toISOString().split('T')[0];
+
+	const rpeRecords = await db
+		.select()
+		.from(activityRpe)
+		.where(gte(activityRpe.date, startDateStr))
+		.orderBy(desc(activityRpe.date));
+
+	// Group RPE by date and calculate daily fatigue
+	const fatigueByDate: Record<string, { totalFatigue: number; avgRpe: number; count: number }> = {};
+	for (const record of rpeRecords) {
+		if (!fatigueByDate[record.date]) {
+			fatigueByDate[record.date] = { totalFatigue: 0, avgRpe: 0, count: 0 };
+		}
+		fatigueByDate[record.date].totalFatigue += record.fatigue || 0;
+		fatigueByDate[record.date].avgRpe += record.rpe;
+		fatigueByDate[record.date].count += 1;
+	}
+
+	// Finalize averages
+	for (const date of Object.keys(fatigueByDate)) {
+		fatigueByDate[date].avgRpe = Math.round((fatigueByDate[date].avgRpe / fatigueByDate[date].count) * 10) / 10;
+		fatigueByDate[date].totalFatigue = Math.round(fatigueByDate[date].totalFatigue * 100) / 100;
+	}
+
+	// Prepare fatigue chart data (aligned with stress chart)
+	const fatigueChartData = chartRecords.map((s) => {
+		const dayData = fatigueByDate[s.date];
+		return dayData ? dayData.totalFatigue : null;
+	});
+
+	// Calculate avg fatigue for last 7 days
+	const last7Fatigue = last7Days
+		.map((s) => fatigueByDate[s.date]?.totalFatigue)
+		.filter((f): f is number => f !== undefined);
+	const avgFatigue = last7Fatigue.length > 0
+		? Math.round((last7Fatigue.reduce((a, b) => a + b, 0) / last7Fatigue.length) * 100) / 100
+		: null;
+
 	return {
 		stressData: stressRecords,
 		avgStress,
@@ -73,6 +115,9 @@ export const load: PageServerLoad = async () => {
 		avgLowStress,
 		avgHighStress,
 		chartData,
-		weeklyStressMinutes
+		weeklyStressMinutes,
+		fatigueByDate,
+		fatigueChartData,
+		avgFatigue
 	};
 };

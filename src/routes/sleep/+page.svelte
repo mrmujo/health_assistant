@@ -1,10 +1,16 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import LineChart from '$lib/components/charts/LineChart.svelte';
 	import PieChart from '$lib/components/charts/PieChart.svelte';
 
 	let { data } = $props();
+
+	// Note modal state
+	let showNoteModal = $state(false);
+	let noteModalDate = $state('');
+	let noteText = $state('');
+	let savingNote = $state(false);
 
 	function formatDuration(seconds: number): string {
 		const hours = Math.floor(seconds / 3600);
@@ -18,6 +24,31 @@
 			hour: 'numeric',
 			minute: '2-digit'
 		});
+	}
+
+	function openNoteModal(date: string, existingNote: string | null) {
+		noteModalDate = date;
+		noteText = existingNote || '';
+		showNoteModal = true;
+	}
+
+	async function saveNote() {
+		savingNote = true;
+		try {
+			const res = await fetch('/api/sleep/note', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ date: noteModalDate, note: noteText })
+			});
+			if (res.ok) {
+				showNoteModal = false;
+				await invalidateAll();
+			}
+		} catch (e) {
+			console.error('Failed to save note', e);
+		} finally {
+			savingNote = false;
+		}
 	}
 
 	async function analyzeDay(date: string) {
@@ -161,6 +192,21 @@
 								<span>Resp: {sleep.avgRespirationRate?.toFixed(1)}/min</span>
 							{/if}
 						</div>
+						<div class="sleep-note-section">
+							{#if sleep.note}
+								<div class="sleep-note">
+									<span class="note-icon">📝</span>
+									<span class="note-text">{sleep.note}</span>
+									<button class="btn-edit-note" onclick={() => openNoteModal(sleep.date, sleep.note)} title="Edit note">
+										Edit
+									</button>
+								</div>
+							{:else}
+								<button class="btn-add-note" onclick={() => openNoteModal(sleep.date, null)}>
+									+ Add note
+								</button>
+							{/if}
+						</div>
 					</div>
 				{/each}
 			</div>
@@ -175,6 +221,34 @@
 	{:else}
 		<div class="card empty-state">
 			<p>No sleep data available. <a href="/settings">Connect Garmin and sync your data</a> to see sleep analysis.</p>
+		</div>
+	{/if}
+
+	{#if showNoteModal}
+		<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+		<div class="modal-overlay" onclick={() => showNoteModal = false} role="presentation">
+			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+			<div class="modal" onclick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+				<div class="modal-header">
+					<h3>Sleep Note</h3>
+					<button class="modal-close" onclick={() => showNoteModal = false}>&times;</button>
+				</div>
+				<div class="modal-body">
+					<p class="modal-date">{new Date(noteModalDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+					<textarea
+						bind:value={noteText}
+						placeholder="How did you sleep? Any factors that affected your sleep..."
+						rows="4"
+						class="note-textarea"
+					></textarea>
+				</div>
+				<div class="modal-footer">
+					<button class="btn btn-secondary" onclick={() => showNoteModal = false}>Cancel</button>
+					<button class="btn btn-primary" onclick={saveNote} disabled={savingNote}>
+						{savingNote ? 'Saving...' : 'Save'}
+					</button>
+				</div>
+			</div>
 		</div>
 	{/if}
 </div>
@@ -319,5 +393,180 @@
 
 	.charts-section .grid {
 		margin-bottom: 1rem;
+	}
+
+	/* Note styles */
+	.sleep-note-section {
+		margin-top: 0.75rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.sleep-note {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		font-size: 0.875rem;
+		color: var(--color-text-secondary);
+	}
+
+	.note-icon {
+		flex-shrink: 0;
+	}
+
+	.note-text {
+		flex: 1;
+		line-height: 1.4;
+	}
+
+	.btn-edit-note {
+		background: none;
+		border: none;
+		color: var(--color-primary);
+		cursor: pointer;
+		font-size: 0.75rem;
+		padding: 0;
+		flex-shrink: 0;
+	}
+
+	.btn-edit-note:hover {
+		text-decoration: underline;
+	}
+
+	.btn-add-note {
+		background: none;
+		border: 1px dashed var(--color-border);
+		border-radius: var(--radius);
+		padding: 0.375rem 0.75rem;
+		color: var(--color-text-secondary);
+		cursor: pointer;
+		font-size: 0.8125rem;
+		transition: all 0.15s ease;
+	}
+
+	.btn-add-note:hover {
+		border-color: var(--color-primary);
+		color: var(--color-primary);
+	}
+
+	/* Modal styles */
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		padding: 1rem;
+	}
+
+	.modal {
+		background: var(--color-bg);
+		border-radius: var(--radius-lg, 0.75rem);
+		width: 100%;
+		max-width: 420px;
+		max-height: 90vh;
+		overflow: auto;
+		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 1rem 1.25rem;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.modal-header h3 {
+		font-size: 1.125rem;
+		margin: 0;
+	}
+
+	.modal-close {
+		background: none;
+		border: none;
+		font-size: 1.5rem;
+		cursor: pointer;
+		color: var(--color-text-secondary);
+		padding: 0;
+		line-height: 1;
+	}
+
+	.modal-close:hover {
+		color: var(--color-text);
+	}
+
+	.modal-body {
+		padding: 1.25rem;
+	}
+
+	.modal-date {
+		color: var(--color-text-secondary);
+		font-size: 0.875rem;
+		margin-bottom: 1rem;
+	}
+
+	.note-textarea {
+		width: 100%;
+		padding: 0.75rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius);
+		background: var(--color-bg-secondary);
+		color: var(--color-text);
+		font-size: 0.875rem;
+		font-family: inherit;
+		resize: vertical;
+	}
+
+	.note-textarea:focus {
+		outline: none;
+		border-color: var(--color-primary);
+	}
+
+	.modal-footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.75rem;
+		padding: 1rem 1.25rem;
+		border-top: 1px solid var(--color-border);
+	}
+
+	.btn {
+		padding: 0.5rem 1rem;
+		border-radius: var(--radius);
+		font-size: 0.875rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.btn-secondary {
+		background: var(--color-bg-secondary);
+		border: 1px solid var(--color-border);
+		color: var(--color-text);
+	}
+
+	.btn-secondary:hover {
+		background: var(--color-bg-tertiary);
+	}
+
+	.btn-primary {
+		background: var(--color-primary);
+		border: 1px solid var(--color-primary);
+		color: white;
+	}
+
+	.btn-primary:hover {
+		opacity: 0.9;
+	}
+
+	.btn-primary:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
 	}
 </style>

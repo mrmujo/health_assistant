@@ -9,6 +9,7 @@
 		{ href: '/chat', label: 'Chat', icon: '💬' },
 		{ href: '/sleep', label: 'Sleep', icon: '😴' },
 		{ href: '/activity', label: 'Activity', icon: '🏃' },
+		{ href: '/coach', label: 'Coach', icon: '🏅' },
 		{ href: '/stress', label: 'Stress', icon: '🧘' },
 		{ href: '/insights', label: 'Insights', icon: '🔮' },
 		{ href: '/logs', label: 'Logs', icon: '📝' },
