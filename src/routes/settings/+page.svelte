@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { getAISettings, saveAISettings, type AISettings } from '$lib/ai';
 	import { cryptoStore } from '$lib/crypto';
 
@@ -29,7 +30,7 @@
 	let cryptoReady = $state(false);
 	let aiSettingsLoaded = $state(false);
 
-	// Local mode storage helpers
+	// Storage helpers - use localStorage as fallback when encryption not set up
 	function getLocalSettings(): AISettings | null {
 		try {
 			const stored = localStorage.getItem('ai-settings');
@@ -56,12 +57,22 @@
 				ollamaModel = settings.ollamaModel || '';
 			}
 		} else {
-			// Production mode: use encrypted storage
+			// Production mode: check for encryption, fallback to localStorage
 			await cryptoStore.init();
 			cryptoReady = cryptoStore.isUnlocked();
 
 			if (cryptoReady) {
 				const settings = await getAISettings();
+				if (settings) {
+					aiProvider = settings.provider;
+					openaiKey = settings.openaiKey || '';
+					anthropicKey = settings.anthropicKey || '';
+					ollamaEndpoint = settings.ollamaEndpoint || '';
+					ollamaModel = settings.ollamaModel || '';
+				}
+			} else {
+				// Fallback to localStorage if encryption not set up
+				const settings = getLocalSettings();
 				if (settings) {
 					aiProvider = settings.provider;
 					openaiKey = settings.openaiKey || '';
@@ -132,11 +143,6 @@
 	}
 
 	async function saveAiSettingsHandler() {
-		if (!cryptoReady && !isLocalMode) {
-			keysSuccess = 'Please complete encryption setup first.';
-			return;
-		}
-
 		keysSaving = true;
 		keysSuccess = '';
 
@@ -152,9 +158,13 @@
 			if (isLocalMode) {
 				saveLocalSettings(settings);
 				keysSuccess = 'AI settings saved locally';
-			} else {
+			} else if (cryptoReady) {
 				await saveAISettings(settings);
-				keysSuccess = 'AI settings saved securely (encrypted locally)';
+				keysSuccess = 'AI settings saved (encrypted)';
+			} else {
+				// No encryption set up - use localStorage
+				saveLocalSettings(settings);
+				keysSuccess = 'AI settings saved locally (enable encryption for extra security)';
 			}
 		} catch (e) {
 			keysSuccess = 'Failed to save settings';
@@ -242,16 +252,42 @@
 		{/if}
 	</section>
 
+	{#if !isLocalMode}
+		<section class="card">
+			<div class="card-header">
+				<h2 class="card-title">Encryption</h2>
+				{#if cryptoReady}
+					<span class="badge badge-success">Enabled</span>
+				{:else}
+					<span class="badge badge-secondary">Not set up</span>
+				{/if}
+			</div>
+
+			{#if cryptoReady}
+				<p class="info-text">
+					Your AI API keys are encrypted with your personal recovery phrase.
+					Only you can decrypt them.
+				</p>
+			{:else}
+				<div class="encryption-info">
+					<p>Add an extra layer of security by encrypting sensitive data with a recovery phrase only you control.</p>
+					<ul>
+						<li>Your AI API keys will be encrypted locally</li>
+						<li>24-word recovery phrase backs up your encryption key</li>
+						<li>We never see your encryption key or unencrypted data</li>
+					</ul>
+					<button class="btn btn-secondary" onclick={() => goto('/setup')}>
+						Set Up Encryption
+					</button>
+				</div>
+			{/if}
+		</section>
+	{/if}
+
 	<section class="card">
 		<div class="card-header">
 			<h2 class="card-title">AI Provider</h2>
 		</div>
-
-		{#if !cryptoReady && aiSettingsLoaded && !isLocalMode}
-			<div class="warning-message">
-				Encryption not set up. Please complete the <a href="/setup">encryption setup</a> first.
-			</div>
-		{/if}
 
 		<div class="form-group">
 			<label class="form-label">Select AI Provider</label>
@@ -337,7 +373,7 @@
 			<p class="success-message">{keysSuccess}</p>
 		{/if}
 
-		<button class="btn btn-primary" onclick={saveAiSettingsHandler} disabled={keysSaving || !cryptoReady}>
+		<button class="btn btn-primary" onclick={saveAiSettingsHandler} disabled={keysSaving}>
 			{keysSaving ? 'Saving...' : 'Save AI Settings'}
 		</button>
 	</section>
@@ -462,5 +498,29 @@
 	.warning-message a {
 		color: inherit;
 		font-weight: 500;
+	}
+
+	.encryption-info {
+		font-size: 0.875rem;
+	}
+
+	.encryption-info p {
+		color: var(--color-text-secondary);
+		margin-bottom: 0.75rem;
+	}
+
+	.encryption-info ul {
+		margin: 0 0 1rem;
+		padding-left: 1.25rem;
+		color: var(--color-text-secondary);
+	}
+
+	.encryption-info li {
+		margin-bottom: 0.25rem;
+	}
+
+	.badge-secondary {
+		background: var(--color-bg-tertiary);
+		color: var(--color-text-secondary);
 	}
 </style>

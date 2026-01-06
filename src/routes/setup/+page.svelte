@@ -134,9 +134,18 @@
 			</div>
 
 			<p class="description">
-				Your health data is protected with end-to-end encryption.
-				Only you can access your data with your recovery phrase.
+				Optionally protect your health data with end-to-end encryption.
+				Only you can access encrypted data with your recovery phrase.
 			</p>
+
+			<div class="info-box">
+				<strong>What does encryption protect?</strong>
+				<ul>
+					<li>AI API keys stored in your browser</li>
+					<li>Future: encrypted health notes and logs</li>
+				</ul>
+				<p>Your Garmin data is already stored securely on our servers. Encryption adds an extra layer where only you hold the key.</p>
+			</div>
 
 			<div class="options">
 				<button class="option-btn primary" onclick={startNewSetup}>
@@ -152,6 +161,14 @@
 					<span class="option-text">
 						<strong>Recover</strong>
 						<small>I have a recovery phrase</small>
+					</span>
+				</button>
+
+				<button class="option-btn skip" onclick={goToApp}>
+					<span class="option-icon">&#10145;</span>
+					<span class="option-text">
+						<strong>Skip for Now</strong>
+						<small>You can set this up later in Settings</small>
 					</span>
 				</button>
 			</div>
@@ -328,6 +345,40 @@
 	.option-btn.primary {
 		border-color: var(--color-primary);
 		background: rgba(59, 130, 246, 0.05);
+	}
+
+	.option-btn.skip {
+		border-style: dashed;
+		opacity: 0.8;
+	}
+
+	.info-box {
+		background: var(--color-bg);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius);
+		padding: 1rem;
+		margin-bottom: 1.5rem;
+		font-size: 0.875rem;
+	}
+
+	.info-box strong {
+		display: block;
+		margin-bottom: 0.5rem;
+	}
+
+	.info-box ul {
+		margin: 0.5rem 0;
+		padding-left: 1.25rem;
+	}
+
+	.info-box li {
+		color: var(--color-text-secondary);
+		margin-bottom: 0.25rem;
+	}
+
+	.info-box p {
+		margin: 0.5rem 0 0;
+		color: var(--color-text-secondary);
 	}
 
 	.option-icon {
