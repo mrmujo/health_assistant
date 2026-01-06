@@ -62,7 +62,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		};
 
 		// Public routes that don't require authentication
-		const publicRoutes = ['/login', '/auth/callback', '/auth/confirm', '/setup', '/recover'];
+		const publicRoutes = ['/login', '/auth/callback', '/auth/confirm', '/setup', '/recover', '/api/verify-turnstile'];
 		const isPublicRoute = publicRoutes.some((route) => event.url.pathname.startsWith(route));
 
 		// Check auth for protected routes
