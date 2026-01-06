@@ -1,4 +1,10 @@
+import { Buffer } from 'buffer';
 import * as bip39 from 'bip39';
+
+// Polyfill Buffer for browser
+if (typeof window !== 'undefined' && !window.Buffer) {
+	window.Buffer = Buffer;
+}
 
 // Generate a new BIP39 mnemonic (24 words for 256-bit entropy)
 export function generateMnemonic(): string {

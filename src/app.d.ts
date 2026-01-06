@@ -1,4 +1,5 @@
 import type { SupabaseClient, Session, User } from '@supabase/supabase-js';
+import type { Buffer as BufferType } from 'buffer';
 
 declare global {
 	namespace App {
@@ -10,6 +11,9 @@ declare global {
 			session: Session | null;
 			user: User | null;
 		}
+	}
+	interface Window {
+		Buffer: typeof BufferType;
 	}
 }
 
