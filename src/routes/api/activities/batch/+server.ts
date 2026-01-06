@@ -5,9 +5,10 @@ import { db } from '$lib/server/db/client';
 import { activities } from '$lib/server/db/schema';
 import { eq, inArray } from 'drizzle-orm';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	const startDate = url.searchParams.get('start');
 	const endDate = url.searchParams.get('end');
+	const { user } = await locals.safeGetSession();
 
 	if (!startDate || !endDate) {
 		return json({ success: false, error: 'Start and end dates required' }, { status: 400 });
@@ -46,7 +47,8 @@ export const GET: RequestHandler = async ({ url }) => {
 		// Fetch uncached dates from Garmin in one call
 		const result = await garminClient.fetchActivitiesBatch(
 			uncachedDates[0],
-			uncachedDates[uncachedDates.length - 1]
+			uncachedDates[uncachedDates.length - 1],
+			user?.id
 		);
 
 		// Cache the results

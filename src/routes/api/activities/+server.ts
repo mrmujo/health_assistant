@@ -5,8 +5,9 @@ import { db } from '$lib/server/db/client';
 import { activities } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	const date = url.searchParams.get('date');
+	const { user } = await locals.safeGetSession();
 
 	if (!date) {
 		return json({ success: false, error: 'Date required' }, { status: 400 });
@@ -20,7 +21,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 
 		// Fetch from Garmin API
-		const result = await garminClient.fetchActivities(date);
+		const result = await garminClient.fetchActivities(date, user?.id);
 
 		// Cache successful results in database
 		if (result.success && result.data && result.data.length > 0) {
