@@ -26,11 +26,13 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		// Cache successful results in database
 		if (result.success && result.data && result.data.length > 0) {
 			for (const activity of result.data) {
+				// Normalize activityId - ensure it's a clean integer string (no .0 suffix)
+				const activityId = String(activity.activityId).replace(/\.0$/, '');
 				await db
 					.insert(activities)
 					.values({
 						date,
-						activityId: activity.activityId,
+						activityId,
 						activityType: activity.activityType || null,
 						activityName: activity.activityName || null,
 						duration: activity.duration || null,
@@ -41,7 +43,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 						averageSpeed: activity.averageSpeed || null,
 						rawData: JSON.stringify(activity)
 					})
-					.onConflictDoNothing();
+					.onConflictDoUpdate({
+						target: activities.activityId,
+						set: { date } // Update date if conflict (no-op but ensures conflict is handled)
+					});
 			}
 		}
 

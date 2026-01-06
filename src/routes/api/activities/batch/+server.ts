@@ -55,11 +55,13 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		if (result.success && result.data) {
 			for (const [date, acts] of Object.entries(result.data)) {
 				for (const activity of acts) {
+					// Normalize activityId - ensure it's a clean integer string (no .0 suffix)
+					const activityId = String(activity.activityId).replace(/\.0$/, '');
 					await db
 						.insert(activities)
 						.values({
 							date,
-							activityId: String(activity.activityId),
+							activityId,
 							activityType: activity.activityType || null,
 							activityName: activity.activityName || null,
 							duration: activity.duration || null,
@@ -70,12 +72,15 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 							averageSpeed: activity.averageSpeed || null,
 							rawData: JSON.stringify(activity)
 						})
-						.onConflictDoNothing();
+						.onConflictDoUpdate({
+							target: activities.activityId,
+							set: { date } // Update date if conflict (no-op but ensures conflict is handled)
+						});
 				}
 				// Add to cachedByDate for response
 				cachedByDate[date] = acts.map((a) => ({
 					...a,
-					activityId: String(a.activityId)
+					activityId: String(a.activityId).replace(/\.0$/, '')
 				})) as any;
 			}
 
