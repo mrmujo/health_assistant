@@ -29,17 +29,23 @@
 	});
 
 	function startNewSetup() {
-		// Generate new mnemonic
-		mnemonic = cryptoStore.generateMnemonic();
+		error = '';
+		try {
+			// Generate new mnemonic
+			mnemonic = cryptoStore.generateMnemonic();
 
-		// Pick 3 random word indices for verification
-		const indices = new Set<number>();
-		while (indices.size < 3) {
-			indices.add(Math.floor(Math.random() * 24));
+			// Pick 3 random word indices for verification
+			const indices = new Set<number>();
+			while (indices.size < 3) {
+				indices.add(Math.floor(Math.random() * 24));
+			}
+			verifyIndices = [...indices].sort((a, b) => a - b);
+
+			step = 'generate';
+		} catch (e) {
+			error = `Failed to generate recovery phrase: ${e}`;
+			console.error('Mnemonic generation error:', e);
 		}
-		verifyIndices = [...indices].sort((a, b) => a - b);
-
-		step = 'generate';
 	}
 
 	function proceedToConfirm() {
@@ -172,6 +178,10 @@
 					</span>
 				</button>
 			</div>
+
+			{#if error}
+				<div class="error">{error}</div>
+			{/if}
 		{:else if step === 'generate'}
 			<h2>Your Recovery Phrase</h2>
 			<p class="warning">
