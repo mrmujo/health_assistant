@@ -4,11 +4,13 @@ import { db } from '$lib/server/db/client';
 import { settings } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ locals }) => {
+	const { user } = await locals.safeGetSession();
+
 	// Check Garmin auth status
 	let garminConnected = false;
 	try {
-		const authStatus = await garminClient.checkAuth();
+		const authStatus = await garminClient.checkAuth(user?.id);
 		garminConnected = authStatus.authenticated;
 	} catch {
 		garminConnected = false;
