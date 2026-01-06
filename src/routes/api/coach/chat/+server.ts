@@ -7,8 +7,7 @@ import {
 	activityRpe,
 	sleepData,
 	stressData,
-	activities,
-	settings
+	activities
 } from '$lib/server/db/schema';
 import { eq, desc, gte } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
@@ -54,35 +53,11 @@ Use the WORKOUT_ID values provided in the context. Only include action blocks wh
 For major plan restructuring, suggest using "Regenerate Plan" instead.`;
 
 interface ApiConfig {
-	openaiKey: string | null;
-	anthropicKey: string | null;
-	ollamaEndpoint: string | null;
-	ollamaModel: string | null;
+	openaiKey?: string | null;
+	anthropicKey?: string | null;
+	ollamaEndpoint?: string | null;
+	ollamaModel?: string | null;
 	provider: string;
-}
-
-async function getApiKeys(): Promise<ApiConfig> {
-	const [
-		openaiSetting,
-		anthropicSetting,
-		providerSetting,
-		ollamaEndpointSetting,
-		ollamaModelSetting
-	] = await Promise.all([
-		db.select().from(settings).where(eq(settings.key, 'openaiKey')).limit(1),
-		db.select().from(settings).where(eq(settings.key, 'anthropicKey')).limit(1),
-		db.select().from(settings).where(eq(settings.key, 'aiProvider')).limit(1),
-		db.select().from(settings).where(eq(settings.key, 'ollamaEndpoint')).limit(1),
-		db.select().from(settings).where(eq(settings.key, 'ollamaModel')).limit(1)
-	]);
-
-	return {
-		openaiKey: openaiSetting[0]?.value || null,
-		anthropicKey: anthropicSetting[0]?.value || null,
-		ollamaEndpoint: ollamaEndpointSetting[0]?.value || null,
-		ollamaModel: ollamaModelSetting[0]?.value || null,
-		provider: providerSetting[0]?.value || 'anthropic'
-	};
 }
 
 function formatDistance(meters: number | null): string {
@@ -105,7 +80,7 @@ function formatTime(seconds: number | null): string {
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
-		const { goalId, messages } = await request.json();
+		const { goalId, messages, apiConfig } = await request.json();
 
 		if (!goalId) {
 			return new Response(JSON.stringify({ error: 'Goal ID required' }), {
@@ -113,6 +88,16 @@ export const POST: RequestHandler = async ({ request }) => {
 				headers: { 'Content-Type': 'application/json' }
 			});
 		}
+
+		// API config must be provided by the client (keeps keys client-side)
+		if (!apiConfig) {
+			return new Response(JSON.stringify({ error: 'API configuration required. Please configure your AI settings.' }), {
+				status: 400,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
+
+		const config: ApiConfig = apiConfig;
 
 		// Get goal
 		const goals = await db
@@ -205,19 +190,16 @@ Recovery Data:
 
 		const fullSystemPrompt = COACH_CHAT_SYSTEM_PROMPT + '\n\n' + contextMessage;
 
-		// Get API config
-		const config = await getApiKeys();
-
-		// Stream response
+		// Stream response using client-provided API config
 		if (config.provider === 'ollama' && config.ollamaEndpoint) {
 			return streamOllama(messages, fullSystemPrompt, config.ollamaEndpoint, config.ollamaModel || 'llama2');
 		} else if (config.provider === 'openai' && config.openaiKey) {
 			return streamOpenAI(messages, fullSystemPrompt, config.openaiKey);
-		} else if (config.anthropicKey) {
+		} else if (config.provider === 'anthropic' && config.anthropicKey) {
 			return streamAnthropic(messages, fullSystemPrompt, config.anthropicKey);
 		} else {
-			return new Response(JSON.stringify({ error: 'No API key configured' }), {
-				status: 500,
+			return new Response(JSON.stringify({ error: 'No API key configured for the selected provider. Please add your API key in Settings.' }), {
+				status: 400,
 				headers: { 'Content-Type': 'application/json' }
 			});
 		}

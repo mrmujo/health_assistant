@@ -11,7 +11,6 @@ import {
 	activities
 } from '$lib/server/db/schema';
 import { eq, desc, gte } from 'drizzle-orm';
-import { settings } from '$lib/server/db/schema';
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 
@@ -30,48 +29,22 @@ Day: d=dayOfWeek(0-6), t=type(easy/tempo/intervals/long/recovery/rest), m=minute
 Include ALL 7 days per week. Use t:"rest" with m:0 for rest days.`;
 
 interface ApiConfig {
-	openaiKey: string | null;
-	anthropicKey: string | null;
-	ollamaEndpoint: string | null;
-	ollamaModel: string | null;
+	openaiKey?: string | null;
+	anthropicKey?: string | null;
+	ollamaEndpoint?: string | null;
+	ollamaModel?: string | null;
 	provider: string;
 }
 
-async function getApiKeys(): Promise<ApiConfig> {
-	const [
-		openaiSetting,
-		anthropicSetting,
-		providerSetting,
-		ollamaEndpointSetting,
-		ollamaModelSetting
-	] = await Promise.all([
-		db.select().from(settings).where(eq(settings.key, 'openaiKey')).limit(1),
-		db.select().from(settings).where(eq(settings.key, 'anthropicKey')).limit(1),
-		db.select().from(settings).where(eq(settings.key, 'aiProvider')).limit(1),
-		db.select().from(settings).where(eq(settings.key, 'ollamaEndpoint')).limit(1),
-		db.select().from(settings).where(eq(settings.key, 'ollamaModel')).limit(1)
-	]);
-
-	return {
-		openaiKey: openaiSetting[0]?.value || null,
-		anthropicKey: anthropicSetting[0]?.value || null,
-		ollamaEndpoint: ollamaEndpointSetting[0]?.value || null,
-		ollamaModel: ollamaModelSetting[0]?.value || null,
-		provider: providerSetting[0]?.value || 'anthropic'
-	};
-}
-
-async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
-	const config = await getApiKeys();
-
+function callAI(systemPrompt: string, userPrompt: string, config: ApiConfig): Promise<string> {
 	if (config.provider === 'ollama' && config.ollamaEndpoint) {
 		return callOllama(systemPrompt, userPrompt, config.ollamaEndpoint, config.ollamaModel || 'llama2');
 	} else if (config.provider === 'openai' && config.openaiKey) {
 		return callOpenAI(systemPrompt, userPrompt, config.openaiKey);
-	} else if (config.anthropicKey) {
+	} else if (config.provider === 'anthropic' && config.anthropicKey) {
 		return callAnthropic(systemPrompt, userPrompt, config.anthropicKey);
 	} else {
-		throw new Error('No API key configured. Please add your API keys in Settings.');
+		throw new Error('No API key configured for the selected provider. Please add your API key in Settings.');
 	}
 }
 
@@ -274,11 +247,18 @@ function extractJSON(text: string): { json: unknown; error?: string } {
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const body = await request.json();
-		const { goalId } = body;
+		const { goalId, apiConfig } = body;
 
 		if (!goalId) {
 			return json({ success: false, error: 'Goal ID required' }, { status: 400 });
 		}
+
+		// API config must be provided by the client (keeps keys client-side)
+		if (!apiConfig) {
+			return json({ success: false, error: 'API configuration required. Please configure your AI settings.' }, { status: 400 });
+		}
+
+		const config: ApiConfig = apiConfig;
 
 		// Get the goal
 		const goals = await db
@@ -377,8 +357,8 @@ This is a ${weeksUntilEvent}-week plan. You MUST include all ${weeksUntilEvent} 
 
 Return ONLY the JSON object, no other text.`;
 
-		// Call AI to generate plan
-		const aiResponse = await callAI(COACH_SYSTEM_PROMPT, userPrompt);
+		// Call AI to generate plan using client-provided API config
+		const aiResponse = await callAI(COACH_SYSTEM_PROMPT, userPrompt, config);
 
 		// Extract and parse JSON from response
 		const { json: planData, error: parseError } = extractJSON(aiResponse);

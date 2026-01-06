@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { tick } from 'svelte';
+	import { tick, onMount } from 'svelte';
+	import { getAISettings, type AISettings } from '$lib/ai';
 
 	let { data }: { data: PageData } = $props();
 
@@ -22,6 +23,15 @@
 	let sending = $state(false);
 	let applyingAction = $state(false);
 	let messagesContainer: HTMLDivElement;
+	let aiSettings = $state<AISettings | null>(null);
+	let settingsError = $state('');
+
+	onMount(async () => {
+		aiSettings = await getAISettings();
+		if (!aiSettings) {
+			settingsError = 'Please configure your AI settings first.';
+		}
+	});
 
 	const eventIcons: Record<string, string> = {
 		running: '🏃',
@@ -161,8 +171,14 @@
 		const messageContent = content || input.trim();
 		if (!messageContent || sending) return;
 
+		if (!aiSettings) {
+			settingsError = 'Please configure your AI settings first.';
+			return;
+		}
+
 		input = '';
 		sending = true;
+		settingsError = '';
 
 		// Add user message
 		messages = [...messages, { role: 'user', content: messageContent }];
@@ -178,7 +194,14 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					goalId: data.selectedGoal.id,
-					messages: messages.slice(0, -1) // Don't include the empty assistant message
+					messages: messages.slice(0, -1), // Don't include the empty assistant message
+					apiConfig: {
+						provider: aiSettings.provider,
+						openaiKey: aiSettings.openaiKey,
+						anthropicKey: aiSettings.anthropicKey,
+						ollamaEndpoint: aiSettings.ollamaEndpoint,
+						ollamaModel: aiSettings.ollamaModel
+					}
 				})
 			});
 
@@ -292,7 +315,14 @@
 		</div>
 
 		<div class="messages" bind:this={messagesContainer}>
-			{#if messages.length === 0}
+			{#if settingsError}
+				<div class="settings-error">
+					<div class="error-icon">⚙️</div>
+					<h2>AI Settings Required</h2>
+					<p>Please configure your AI provider and API keys to use the coach.</p>
+					<a href="/settings" class="btn-settings">Go to Settings</a>
+				</div>
+			{:else if messages.length === 0}
 				<div class="welcome">
 					<div class="welcome-icon">🏅</div>
 					<h2>Your AI Training Coach</h2>
@@ -435,6 +465,40 @@
 		flex: 1;
 		overflow-y: auto;
 		padding: 1rem;
+	}
+
+	.settings-error {
+		text-align: center;
+		padding: 3rem 2rem;
+	}
+
+	.settings-error .error-icon {
+		font-size: 3rem;
+		margin-bottom: 1rem;
+	}
+
+	.settings-error h2 {
+		margin: 0 0 0.5rem;
+		font-size: 1.25rem;
+	}
+
+	.settings-error p {
+		color: var(--color-text-secondary);
+		margin: 0 0 1.5rem;
+	}
+
+	.btn-settings {
+		display: inline-block;
+		padding: 0.75rem 1.5rem;
+		background: var(--color-primary);
+		color: white;
+		text-decoration: none;
+		border-radius: var(--radius);
+		font-weight: 500;
+	}
+
+	.btn-settings:hover {
+		background: var(--color-primary-hover);
 	}
 
 	.welcome {

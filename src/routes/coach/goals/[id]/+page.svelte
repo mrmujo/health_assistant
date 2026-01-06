@@ -1,7 +1,14 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { onMount } from 'svelte';
+	import { getAISettings, type AISettings } from '$lib/ai';
 
 	let { data }: { data: PageData } = $props();
+	let aiSettings = $state<AISettings | null>(null);
+
+	onMount(async () => {
+		aiSettings = await getAISettings();
+	});
 
 	let generating = $state(false);
 	let generateError = $state('');
@@ -73,6 +80,11 @@
 	}
 
 	async function generatePlan() {
+		if (!aiSettings) {
+			generateError = 'Please configure your AI settings first in the Settings page.';
+			return;
+		}
+
 		generating = true;
 		generateError = '';
 
@@ -80,7 +92,16 @@
 			const res = await fetch('/api/coach/generate-plan', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ goalId: data.goal.id })
+				body: JSON.stringify({
+					goalId: data.goal.id,
+					apiConfig: {
+						provider: aiSettings.provider,
+						openaiKey: aiSettings.openaiKey,
+						anthropicKey: aiSettings.anthropicKey,
+						ollamaEndpoint: aiSettings.ollamaEndpoint,
+						ollamaModel: aiSettings.ollamaModel
+					}
+				})
 			});
 
 			const result = await res.json();
@@ -98,6 +119,11 @@
 	}
 
 	async function regeneratePlan() {
+		if (!aiSettings) {
+			generateError = 'Please configure your AI settings first in the Settings page.';
+			return;
+		}
+
 		regenerating = true;
 		generateError = '';
 
@@ -107,7 +133,14 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					goalId: data.goal.id,
-					reason: regenerateReason || undefined
+					reason: regenerateReason || undefined,
+					apiConfig: {
+						provider: aiSettings.provider,
+						openaiKey: aiSettings.openaiKey,
+						anthropicKey: aiSettings.anthropicKey,
+						ollamaEndpoint: aiSettings.ollamaEndpoint,
+						ollamaModel: aiSettings.ollamaModel
+					}
 				})
 			});
 

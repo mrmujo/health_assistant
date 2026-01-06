@@ -1,11 +1,9 @@
 import type { PageServerLoad } from './$types';
-import { getCurrentProvider } from '$lib/server/ai/provider';
 import { db } from '$lib/server/db/client';
 import { chatMessages, chatConversations, settings } from '$lib/server/db/schema';
-import { desc, eq, isNull } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ url }) => {
-	const provider = await getCurrentProvider();
 	const conversationIdParam = url.searchParams.get('id');
 
 	// Get all conversations for the sidebar
@@ -80,7 +78,6 @@ export const load: PageServerLoad = async ({ url }) => {
 	}
 
 	return {
-		provider,
 		conversations,
 		currentConversation,
 		chatHistory,

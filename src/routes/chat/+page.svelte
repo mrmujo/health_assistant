@@ -2,6 +2,7 @@
 	import type { PageData } from './$types';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { getAISettings, type AISettings } from '$lib/ai';
 
 	let { data } = $props();
 
@@ -18,6 +19,8 @@
 	}
 
 	let messages = $state<Message[]>([]);
+	let aiSettings = $state<AISettings | null>(null);
+	let settingsError = $state('');
 	let conversations = $state<Conversation[]>([]);
 	let currentConversation = $state<{ id: number; title: string | null } | null>(null);
 	let input = $state('');
@@ -50,9 +53,14 @@
 		currentConversation = data.currentConversation;
 	});
 
-	// Auto-send prefill question on mount
-	onMount(() => {
-		if (data.prefillQuestion && data.currentConversation) {
+	// Load AI settings and auto-send prefill question on mount
+	onMount(async () => {
+		aiSettings = await getAISettings();
+		if (!aiSettings) {
+			settingsError = 'Please configure your AI settings first.';
+		}
+
+		if (data.prefillQuestion && data.currentConversation && aiSettings) {
 			input = data.prefillQuestion;
 			setTimeout(() => sendMessage(), 100);
 		}
@@ -104,6 +112,13 @@
 	async function sendMessage() {
 		if (!input.trim() || isLoading) return;
 
+		if (!aiSettings) {
+			settingsError = 'Please configure your AI settings first.';
+			return;
+		}
+
+		settingsError = '';
+
 		// If no conversation selected, create one first
 		if (!currentConversation) {
 			try {
@@ -145,7 +160,14 @@
 				body: JSON.stringify({
 					messages: messages,
 					saveUserMessage: true,
-					conversationId: currentConversation?.id
+					conversationId: currentConversation?.id,
+					apiConfig: {
+						provider: aiSettings.provider,
+						openaiKey: aiSettings.openaiKey,
+						anthropicKey: aiSettings.anthropicKey,
+						ollamaEndpoint: aiSettings.ollamaEndpoint,
+						ollamaModel: aiSettings.ollamaModel
+					}
 				})
 			});
 
@@ -272,11 +294,11 @@
 			<div>
 				<h1>{currentConversation?.title || 'Health Chat'}</h1>
 				<p class="provider-info">
-					Using {data.provider === 'openai'
+					Using {aiSettings?.provider === 'openai'
 						? 'GPT-4'
-						: data.provider === 'anthropic'
+						: aiSettings?.provider === 'anthropic'
 							? 'Claude'
-							: data.provider === 'ollama'
+							: aiSettings?.provider === 'ollama'
 								? 'Ollama (Local)'
 								: 'No AI configured'}
 				</p>
@@ -284,7 +306,14 @@
 		</header>
 
 		<div class="chat-container" bind:this={messagesContainer}>
-			{#if !currentConversation && messages.length === 0}
+			{#if settingsError}
+				<div class="settings-error">
+					<div class="error-icon">⚙️</div>
+					<h2>AI Settings Required</h2>
+					<p>Please configure your AI provider and API keys to use the chat.</p>
+					<a href="/settings" class="btn-settings">Go to Settings</a>
+				</div>
+			{:else if !currentConversation && messages.length === 0}
 				<div class="welcome">
 					<h2>Ask me about your health</h2>
 					<p>I have access to your Garmin data and health logs. Try asking:</p>
@@ -327,7 +356,7 @@
 				class="input chat-textarea"
 				bind:value={input}
 				placeholder="Ask about your health data... (Shift+Enter for new line)"
-				disabled={isLoading || data.provider === 'none'}
+				disabled={isLoading || !aiSettings}
 				oninput={autoResize}
 				onkeydown={handleKeydown}
 				rows="1"
@@ -335,14 +364,14 @@
 			<button
 				type="button"
 				class="btn btn-primary"
-				disabled={isLoading || !input.trim() || data.provider === 'none'}
+				disabled={isLoading || !input.trim() || !aiSettings}
 				onclick={sendMessage}
 			>
 				{isLoading ? 'Sending...' : 'Send'}
 			</button>
 		</div>
 
-		{#if data.provider === 'none'}
+		{#if !aiSettings && !settingsError}
 			<p class="no-provider">
 				No AI provider configured. <a href="/settings">Add your API keys in Settings</a>
 			</p>
@@ -539,6 +568,40 @@
 		background: var(--color-bg-secondary);
 		border-radius: var(--radius-lg);
 		margin-bottom: 1rem;
+	}
+
+	.settings-error {
+		text-align: center;
+		padding: 3rem 2rem;
+	}
+
+	.settings-error .error-icon {
+		font-size: 3rem;
+		margin-bottom: 1rem;
+	}
+
+	.settings-error h2 {
+		margin: 0 0 0.5rem;
+		font-size: 1.25rem;
+	}
+
+	.settings-error p {
+		color: var(--color-text-secondary);
+		margin: 0 0 1.5rem;
+	}
+
+	.btn-settings {
+		display: inline-block;
+		padding: 0.75rem 1.5rem;
+		background: var(--color-primary);
+		color: white;
+		text-decoration: none;
+		border-radius: var(--radius);
+		font-weight: 500;
+	}
+
+	.btn-settings:hover {
+		background: var(--color-primary-hover);
 	}
 
 	.welcome {
