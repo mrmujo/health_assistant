@@ -1,9 +1,9 @@
 import type { LayoutServerLoad } from './$types';
-import { LOCAL_MODE } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
 	const { session, user } = await locals.safeGetSession();
-	const isLocalMode = LOCAL_MODE === 'true';
+	const isLocalMode = env.LOCAL_MODE === 'true';
 
 	return {
 		session,
