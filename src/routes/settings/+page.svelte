@@ -1,7 +1,13 @@
 <script lang="ts">
 	import type { PageData } from './$types';
+	import { onMount } from 'svelte';
+	import { getAISettings, saveAISettings, type AISettings } from '$lib/ai';
+	import { cryptoStore } from '$lib/crypto';
 
 	let { data } = $props();
+
+	// Check if running in local mode (passed from layout)
+	const isLocalMode = data.isLocalMode;
 
 	let garminEmail = $state('');
 	let garminPassword = $state('');
@@ -13,13 +19,60 @@
 	let syncDays = $state(7);
 	let syncResult = $state('');
 
-	let aiProvider = $state(data.settings.aiProvider || 'anthropic');
-	let openaiKey = $state(data.settings.openaiKeySet ? '••••••••' : '');
-	let anthropicKey = $state(data.settings.anthropicKeySet ? '••••••••' : '');
-	let ollamaEndpoint = $state(data.settings.ollamaEndpoint || '');
-	let ollamaModel = $state(data.settings.ollamaModel || '');
+	let aiProvider = $state<'anthropic' | 'openai' | 'ollama'>('anthropic');
+	let openaiKey = $state('');
+	let anthropicKey = $state('');
+	let ollamaEndpoint = $state('');
+	let ollamaModel = $state('');
 	let keysSaving = $state(false);
 	let keysSuccess = $state('');
+	let cryptoReady = $state(false);
+	let aiSettingsLoaded = $state(false);
+
+	// Local mode storage helpers
+	function getLocalSettings(): AISettings | null {
+		try {
+			const stored = localStorage.getItem('ai-settings');
+			return stored ? JSON.parse(stored) : null;
+		} catch {
+			return null;
+		}
+	}
+
+	function saveLocalSettings(settings: AISettings): void {
+		localStorage.setItem('ai-settings', JSON.stringify(settings));
+	}
+
+	onMount(async () => {
+		if (isLocalMode) {
+			// Local mode: use localStorage directly
+			cryptoReady = true;
+			const settings = getLocalSettings();
+			if (settings) {
+				aiProvider = settings.provider;
+				openaiKey = settings.openaiKey || '';
+				anthropicKey = settings.anthropicKey || '';
+				ollamaEndpoint = settings.ollamaEndpoint || '';
+				ollamaModel = settings.ollamaModel || '';
+			}
+		} else {
+			// Production mode: use encrypted storage
+			await cryptoStore.init();
+			cryptoReady = cryptoStore.isUnlocked();
+
+			if (cryptoReady) {
+				const settings = await getAISettings();
+				if (settings) {
+					aiProvider = settings.provider;
+					openaiKey = settings.openaiKey || '';
+					anthropicKey = settings.anthropicKey || '';
+					ollamaEndpoint = settings.ollamaEndpoint || '';
+					ollamaModel = settings.ollamaModel || '';
+				}
+			}
+		}
+		aiSettingsLoaded = true;
+	});
 
 	async function authenticateGarmin() {
 		authLoading = true;
@@ -78,30 +131,33 @@
 		}
 	}
 
-	async function saveAiSettings() {
+	async function saveAiSettingsHandler() {
+		if (!cryptoReady && !isLocalMode) {
+			keysSuccess = 'Please complete encryption setup first.';
+			return;
+		}
+
 		keysSaving = true;
 		keysSuccess = '';
 
 		try {
-			const res = await fetch('/api/settings', {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					aiProvider,
-					openaiKey: openaiKey.includes('•') ? undefined : openaiKey,
-					anthropicKey: anthropicKey.includes('•') ? undefined : anthropicKey,
-					ollamaEndpoint,
-					ollamaModel
-				})
-			});
+			const settings: AISettings = {
+				provider: aiProvider,
+				anthropicKey: anthropicKey || undefined,
+				openaiKey: openaiKey || undefined,
+				ollamaEndpoint: ollamaEndpoint || undefined,
+				ollamaModel: ollamaModel || undefined
+			};
 
-			const result = await res.json();
-
-			if (result.success) {
-				keysSuccess = 'Settings saved!';
+			if (isLocalMode) {
+				saveLocalSettings(settings);
+				keysSuccess = 'AI settings saved locally';
+			} else {
+				await saveAISettings(settings);
+				keysSuccess = 'AI settings saved securely (encrypted locally)';
 			}
 		} catch (e) {
-			// ignore
+			keysSuccess = 'Failed to save settings';
 		} finally {
 			keysSaving = false;
 		}
@@ -191,6 +247,12 @@
 			<h2 class="card-title">AI Provider</h2>
 		</div>
 
+		{#if !cryptoReady && aiSettingsLoaded && !isLocalMode}
+			<div class="warning-message">
+				Encryption not set up. Please complete the <a href="/setup">encryption setup</a> first.
+			</div>
+		{/if}
+
 		<div class="form-group">
 			<label class="form-label">Select AI Provider</label>
 			<div class="provider-options">
@@ -275,7 +337,7 @@
 			<p class="success-message">{keysSuccess}</p>
 		{/if}
 
-		<button class="btn btn-primary" onclick={saveAiSettings} disabled={keysSaving}>
+		<button class="btn btn-primary" onclick={saveAiSettingsHandler} disabled={keysSaving || !cryptoReady}>
 			{keysSaving ? 'Saving...' : 'Save AI Settings'}
 		</button>
 	</section>
@@ -385,5 +447,20 @@
 		margin-top: 0.25rem;
 		font-size: 0.75rem;
 		color: var(--color-text-secondary);
+	}
+
+	.warning-message {
+		background: rgba(245, 158, 11, 0.1);
+		border: 1px solid rgba(245, 158, 11, 0.3);
+		color: #f59e0b;
+		padding: 0.75rem 1rem;
+		border-radius: var(--radius);
+		margin-bottom: 1rem;
+		font-size: 0.875rem;
+	}
+
+	.warning-message a {
+		color: inherit;
+		font-weight: 500;
 	}
 </style>

@@ -13,17 +13,32 @@ from datetime import date, timedelta
 from pathlib import Path
 from garminconnect import Garmin
 
-# Token storage location
-TOKENSTORE = str(Path.home() / ".garminconnect")
+# Default token storage location (for local/single-user mode)
+DEFAULT_TOKENSTORE = str(Path.home() / ".garminconnect")
+
+# Per-user token storage base directory (for multi-user hosted mode)
+USER_TOKENSTORE_BASE = str(Path.home() / ".garminconnect-users")
 
 
-def get_client():
+def get_tokenstore(user_id: str = None) -> str:
+    """Get token store path for a specific user or default."""
+    # Use default location for local-user (local mode) or no user_id
+    if not user_id or user_id == "local-user":
+        return DEFAULT_TOKENSTORE
+    # Use per-user directory for hosted multi-user mode
+    base = Path(USER_TOKENSTORE_BASE)
+    base.mkdir(parents=True, exist_ok=True)
+    return str(base / user_id)
+
+
+def get_client(user_id: str = None):
     """Initialize Garmin client with saved tokens."""
-    if not Path(TOKENSTORE).exists():
+    tokenstore = get_tokenstore(user_id)
+    if not Path(tokenstore).exists():
         raise Exception("Not authenticated. Please authenticate first.")
 
     client = Garmin()
-    client.login(TOKENSTORE)
+    client.login(tokenstore)
     return client
 
 
@@ -144,22 +159,23 @@ def depersonalize_heart_rate(data: dict) -> dict:
     }
 
 
-def authenticate(email: str, password: str) -> dict:
+def authenticate(email: str, password: str, user_id: str = None) -> dict:
     """Initial authentication with Garmin Connect."""
     try:
         client = Garmin(email, password)
         client.login()
-        Path(TOKENSTORE).mkdir(parents=True, exist_ok=True)
-        client.garth.dump(TOKENSTORE)
+        tokenstore = get_tokenstore(user_id)
+        Path(tokenstore).mkdir(parents=True, exist_ok=True)
+        client.garth.dump(tokenstore)
         return {"success": True, "message": "Authentication successful"}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def check_auth() -> dict:
+def check_auth(user_id: str = None) -> dict:
     """Check if we have valid authentication."""
     try:
-        client = get_client()
+        client = get_client(user_id)
         # Try to fetch something to verify tokens work
         client.get_full_name()  # This won't be stored, just used for verification
         return {"authenticated": True}
@@ -167,10 +183,10 @@ def check_auth() -> dict:
         return {"authenticated": False}
 
 
-def fetch_sleep_data(target_date: str) -> dict:
+def fetch_sleep_data(target_date: str, user_id: str = None) -> dict:
     """Fetch sleep data for a specific date, including HR during sleep."""
     try:
-        client = get_client()
+        client = get_client(user_id)
         data = client.get_sleep_data(target_date)
         sleep_result = depersonalize_sleep(data)
 
@@ -204,50 +220,50 @@ def fetch_sleep_data(target_date: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-def fetch_activity_summary(target_date: str) -> dict:
+def fetch_activity_summary(target_date: str, user_id: str = None) -> dict:
     """Fetch daily activity summary."""
     try:
-        client = get_client()
+        client = get_client(user_id)
         data = client.get_user_summary(target_date)
         return {"success": True, "data": depersonalize_activity(data)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def fetch_stress_data(target_date: str) -> dict:
+def fetch_stress_data(target_date: str, user_id: str = None) -> dict:
     """Fetch stress data."""
     try:
-        client = get_client()
+        client = get_client(user_id)
         data = client.get_stress_data(target_date)
         return {"success": True, "data": depersonalize_stress(data)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def fetch_body_battery(target_date: str) -> dict:
+def fetch_body_battery(target_date: str, user_id: str = None) -> dict:
     """Fetch body battery data."""
     try:
-        client = get_client()
+        client = get_client(user_id)
         data = client.get_body_battery(target_date)
         return {"success": True, "data": depersonalize_body_battery(data)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def fetch_heart_rate(target_date: str) -> dict:
+def fetch_heart_rate(target_date: str, user_id: str = None) -> dict:
     """Fetch heart rate data."""
     try:
-        client = get_client()
+        client = get_client(user_id)
         data = client.get_heart_rates(target_date)
         return {"success": True, "data": depersonalize_heart_rate(data)}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
 
-def fetch_activities(target_date: str) -> dict:
+def fetch_activities(target_date: str, user_id: str = None) -> dict:
     """Fetch individual activities for a specific date."""
     try:
-        client = get_client()
+        client = get_client(user_id)
         # Get activities for the date range (single day)
         activities = client.get_activities_by_date(target_date, target_date)
 
@@ -274,10 +290,10 @@ def fetch_activities(target_date: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-def fetch_activities_batch(start_date: str, end_date: str) -> dict:
+def fetch_activities_batch(start_date: str, end_date: str, user_id: str = None) -> dict:
     """Fetch individual activities for a date range in a single API call."""
     try:
-        client = get_client()
+        client = get_client(user_id)
         # Get all activities for the date range
         activities = client.get_activities_by_date(start_date, end_date)
 
@@ -314,10 +330,10 @@ def fetch_activities_batch(start_date: str, end_date: str) -> dict:
         return {"success": False, "error": str(e)}
 
 
-def sync_all(start_date: str, end_date: str) -> dict:
+def sync_all(start_date: str, end_date: str, user_id: str = None) -> dict:
     """Sync all data types for a date range."""
     try:
-        client = get_client()
+        client = get_client(user_id)
         results = {
             "success": True,
             "dates": {}
@@ -407,17 +423,19 @@ def main():
     command = sys.argv[1]
     args = json.loads(sys.argv[2]) if len(sys.argv) > 2 else {}
 
+    user_id = args.get("user_id")
+
     commands = {
-        "authenticate": lambda: authenticate(args.get("email", ""), args.get("password", "")),
-        "check_auth": lambda: check_auth(),
-        "fetch_sleep": lambda: fetch_sleep_data(args.get("date", "")),
-        "fetch_activity": lambda: fetch_activity_summary(args.get("date", "")),
-        "fetch_stress": lambda: fetch_stress_data(args.get("date", "")),
-        "fetch_body_battery": lambda: fetch_body_battery(args.get("date", "")),
-        "fetch_heart_rate": lambda: fetch_heart_rate(args.get("date", "")),
-        "fetch_activities": lambda: fetch_activities(args.get("date", "")),
-        "fetch_activities_batch": lambda: fetch_activities_batch(args.get("start_date", ""), args.get("end_date", "")),
-        "sync_all": lambda: sync_all(args.get("start_date", ""), args.get("end_date", "")),
+        "authenticate": lambda: authenticate(args.get("email", ""), args.get("password", ""), user_id),
+        "check_auth": lambda: check_auth(user_id),
+        "fetch_sleep": lambda: fetch_sleep_data(args.get("date", ""), user_id),
+        "fetch_activity": lambda: fetch_activity_summary(args.get("date", ""), user_id),
+        "fetch_stress": lambda: fetch_stress_data(args.get("date", ""), user_id),
+        "fetch_body_battery": lambda: fetch_body_battery(args.get("date", ""), user_id),
+        "fetch_heart_rate": lambda: fetch_heart_rate(args.get("date", ""), user_id),
+        "fetch_activities": lambda: fetch_activities(args.get("date", ""), user_id),
+        "fetch_activities_batch": lambda: fetch_activities_batch(args.get("start_date", ""), args.get("end_date", ""), user_id),
+        "sync_all": lambda: sync_all(args.get("start_date", ""), args.get("end_date", ""), user_id),
     }
 
     if command not in commands:

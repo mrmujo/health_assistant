@@ -1,20 +1,25 @@
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { drizzle as drizzleLibsql } from 'drizzle-orm/libsql';
+import { createClient } from '@libsql/client';
 import * as schema from './schema';
-import { existsSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
 
-const DATABASE_PATH = process.env.DATABASE_URL || './data/health.db';
+const TURSO_DATABASE_URL = process.env.TURSO_DATABASE_URL;
+const TURSO_AUTH_TOKEN = process.env.TURSO_AUTH_TOKEN;
 
-// Ensure data directory exists
-const dir = dirname(DATABASE_PATH);
-if (!existsSync(dir)) {
-	mkdirSync(dir, { recursive: true });
-}
+// Always use libSQL - it supports both remote (Turso) and local file databases
+const useTurso = TURSO_DATABASE_URL && TURSO_AUTH_TOKEN;
 
-const sqlite = new Database(DATABASE_PATH);
+// Configure libSQL client
+const client = createClient(
+	useTurso
+		? {
+				url: TURSO_DATABASE_URL!,
+				authToken: TURSO_AUTH_TOKEN
+			}
+		: {
+				// Use local file in development
+				url: 'file:./data/health.db'
+			}
+);
 
-// Enable WAL mode for better concurrent access
-sqlite.pragma('journal_mode = WAL');
-
-export const db = drizzle(sqlite, { schema });
+export const db = drizzleLibsql(client, { schema });
+export const isTurso = useTurso;

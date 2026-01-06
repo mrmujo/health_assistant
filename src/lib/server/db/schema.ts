@@ -216,6 +216,25 @@ export const plannedWorkouts = sqliteTable('planned_workouts', {
 	completedActivityId: text('completed_activity_id') // link to actual activity
 });
 
+// Encrypted data storage (for E2E encryption)
+export const encryptedData = sqliteTable('encrypted_data', {
+	id: text('id').primaryKey(), // UUID
+	userId: text('user_id').notNull(), // Supabase user ID
+	type: text('type').notNull(), // Data type: sleep, activity, etc.
+	date: text('date').notNull(), // YYYY-MM-DD (for date-range queries)
+	ciphertext: text('ciphertext').notNull(), // Encrypted JSON data
+	iv: text('iv').notNull(), // Initialization vector
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date()),
+	updatedAt: integer('updated_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
+});
+
+// User salt storage (for key derivation on new devices)
+export const userSalts = sqliteTable('user_salts', {
+	userId: text('user_id').primaryKey(), // Supabase user ID
+	salt: text('salt').notNull(), // Base64-encoded salt
+	createdAt: integer('created_at', { mode: 'timestamp' }).$defaultFn(() => new Date())
+});
+
 // Types for use in the application
 export type Settings = typeof settings.$inferSelect;
 export type SleepData = typeof sleepData.$inferSelect;
@@ -233,3 +252,5 @@ export type Activity = typeof activities.$inferSelect;
 export type TrainingGoal = typeof trainingGoals.$inferSelect;
 export type TrainingPlan = typeof trainingPlans.$inferSelect;
 export type PlannedWorkout = typeof plannedWorkouts.$inferSelect;
+export type EncryptedData = typeof encryptedData.$inferSelect;
+export type UserSalt = typeof userSalts.$inferSelect;

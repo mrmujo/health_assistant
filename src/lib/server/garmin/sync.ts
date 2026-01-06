@@ -9,13 +9,14 @@ import { eq } from 'drizzle-orm';
  */
 export async function syncGarminData(
 	startDate: string,
-	endDate: string
+	endDate: string,
+	userId?: string
 ): Promise<{ success: boolean; synced: number; errors: string[] }> {
 	const errors: string[] = [];
 	let synced = 0;
 
 	try {
-		const result: SyncAllResult = await garminClient.syncAll(startDate, endDate);
+		const result: SyncAllResult = await garminClient.syncAll(startDate, endDate, userId);
 
 		if (!result.success || !result.dates) {
 			return { success: false, synced: 0, errors: [result.error || 'Failed to sync'] };

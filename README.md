@@ -22,12 +22,15 @@ This is 100% vibecoded, use at your own discretion.
 
 ## Features
 
+- **End-to-End Encryption** - Your health data is encrypted with a key only you control
+- **BIP39 Recovery Phrase** - 24-word mnemonic for secure key recovery
+- **Multi-User Support** - Per-user encrypted data storage with Supabase auth
 - **Garmin Connect Integration** - Sync sleep, activity, stress, and body battery data
-- **AI-Powered Analysis** - Chat with AI about your health patterns
+- **AI-Powered Analysis** - Chat with AI about your health patterns (keys stored locally)
 - **Multiple AI Providers** - Choose between Claude (Anthropic), GPT-4 (OpenAI), or Ollama (local)
 - **Conversation History** - Organized chat conversations with full history
 - **Manual Logging** - Track food intake, medications, and health notes
-- **Privacy-Focused** - All Garmin data is de-personalized (no names, emails, or account IDs stored)
+- **Privacy-Focused** - Zero-knowledge architecture, data encrypted client-side
 
 ## Pages
 
@@ -65,17 +68,39 @@ This is 100% vibecoded, use at your own discretion.
    pip install garminconnect
    ```
 
-4. **Initialize the database**
+4. **Create environment file**
+   ```bash
+   cp .env.example .env
+   ```
+
+5. **Initialize the database**
    ```bash
    npm run db:push
    ```
 
-5. **Start the development server**
+6. **Start the development server**
    ```bash
    npm run dev
    ```
 
-6. **Open the app** at `http://localhost:5173`
+7. **Open the app** at `http://localhost:5173`
+
+## Local Mode vs Hosted Mode
+
+### Local Mode (Default)
+Set `LOCAL_MODE=true` in `.env` for completely offline usage:
+- No Supabase account needed
+- No internet required after initial setup
+- AI keys stored in browser localStorage
+- All data stored in local SQLite
+- Single user (no auth)
+
+### Hosted Mode
+Set `LOCAL_MODE=false` and configure Supabase for multi-user deployment:
+- Magic link email authentication
+- End-to-end encrypted data storage
+- Per-user encryption keys (BIP39 mnemonic)
+- Optional Turso cloud database
 
 ## Configuration
 
@@ -166,19 +191,67 @@ health-assistant/
 ## Tech Stack
 
 - **Frontend/Backend**: SvelteKit 2 with Svelte 5
-- **Database**: SQLite with Drizzle ORM
-- **AI**: Anthropic Claude, OpenAI GPT-4, or Ollama
+- **Authentication**: Supabase Auth (magic link email)
+- **Database**: SQLite/Turso with Drizzle ORM (libSQL)
+- **Encryption**: AES-256-GCM, BIP39 mnemonic, PBKDF2 key derivation
+- **Key Storage**: IndexedDB (client-side)
+- **AI**: Anthropic Claude, OpenAI GPT-4, or Ollama (client-side calls)
 - **Garmin**: Python `garminconnect` library via subprocess
 
-## Privacy
+## Privacy & Security
 
-This app is designed for personal, self-hosted use:
+This app uses a zero-knowledge encryption architecture:
 
-- All data stays on your machine
-- Garmin data is de-personalized (no names, emails, or account IDs)
-- No analytics or tracking
-- API keys are stored locally in SQLite
-- OAuth tokens stored in `~/.garminconnect`
+- **End-to-End Encryption** - All health data is encrypted client-side with AES-256-GCM
+- **BIP39 Mnemonic** - Your encryption key is derived from a 24-word recovery phrase
+- **Key Never Leaves Browser** - The server never sees your decryption key
+- **AI Keys Encrypted Locally** - API keys stored in IndexedDB, encrypted with your key
+- **Per-User Data Isolation** - Each user's data is encrypted with their unique key
+- **No Analytics or Tracking** - Your data is yours alone
+
+### How Encryption Works
+
+1. On first login, you generate (or enter) a 24-word BIP39 recovery phrase
+2. This phrase derives a unique encryption key using PBKDF2 (600,000 iterations)
+3. All your health data is encrypted before leaving the browser
+4. The server only stores encrypted blobs - it cannot read your data
+5. Your recovery phrase is the ONLY way to access your data
+
+**Important:** Write down your recovery phrase and keep it safe. If you lose it, your data cannot be recovered.
+
+## Deployment
+
+### Requirements for Production
+
+- **Node.js server** (for API routes and Python subprocess)
+- **Supabase project** (for authentication)
+- **Turso database** (optional, for cloud SQLite)
+- **Python environment** (for Garmin data fetching)
+
+### Environment Variables
+
+```bash
+# Supabase (required)
+PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Turso (optional, for cloud database)
+TURSO_DATABASE_URL=libsql://your-db.turso.io
+TURSO_AUTH_TOKEN=your-turso-token
+```
+
+### Deployment Options
+
+#### Railway / Fly.io / VPS
+Best for full functionality including Garmin integration:
+
+1. Deploy the Node.js app
+2. Include Python in your Dockerfile/buildpack
+3. Set environment variables
+4. Run `npm run db:push` to initialize database
+
+#### Note about Serverless
+Vercel/Netlify serverless functions cannot run the Python Garmin script. For serverless deployment, Garmin sync functionality would need to be refactored.
 
 ## Development
 

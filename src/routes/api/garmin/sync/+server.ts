@@ -2,8 +2,13 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { syncGarminData } from '$lib/server/garmin/sync';
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
+		const { user } = await locals.safeGetSession();
+		if (!user) {
+			return json({ success: false, error: 'Unauthorized' }, { status: 401 });
+		}
+
 		const { days = 7 } = await request.json();
 
 		const endDate = new Date();
@@ -13,7 +18,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		const startStr = startDate.toISOString().split('T')[0];
 		const endStr = endDate.toISOString().split('T')[0];
 
-		const result = await syncGarminData(startStr, endStr);
+		const result = await syncGarminData(startStr, endStr, user.id);
 		return json(result);
 	} catch (e) {
 		return json(

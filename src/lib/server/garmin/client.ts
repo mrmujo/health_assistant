@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { join } from 'path';
+import { env } from '$env/dynamic/private';
 
 interface GarminResult<T> {
 	success: boolean;
@@ -87,6 +88,52 @@ interface SyncAllResult {
 	error?: string;
 }
 
+interface Activity {
+	activityId: number;
+	activityName: string;
+	activityType: string;
+	startTimeLocal: string;
+	duration: number;
+	distance: number;
+	calories: number;
+	averageHR: number;
+	maxHR: number;
+	averageSpeed: number;
+	elevationGain: number;
+	steps: number;
+}
+
+// HTTP client for deployed service
+async function callHttpService<T>(endpoint: string, body: Record<string, unknown>): Promise<T> {
+	const serviceUrl = env.GARMIN_SERVICE_URL;
+	const apiKey = env.GARMIN_SERVICE_API_KEY;
+
+	if (!serviceUrl) {
+		throw new Error('GARMIN_SERVICE_URL not configured');
+	}
+
+	const headers: Record<string, string> = {
+		'Content-Type': 'application/json'
+	};
+
+	if (apiKey) {
+		headers['Authorization'] = `Bearer ${apiKey}`;
+	}
+
+	const response = await fetch(`${serviceUrl}${endpoint}`, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify(body)
+	});
+
+	if (!response.ok) {
+		throw new Error(`Garmin service error: ${response.status}`);
+	}
+
+	return response.json();
+}
+
+// Subprocess client for local development
 async function runPythonCommand<T>(
 	command: string,
 	args: Record<string, unknown> = {}
@@ -126,55 +173,86 @@ async function runPythonCommand<T>(
 	});
 }
 
-export const garminClient = {
-	authenticate: (email: string, password: string): Promise<AuthResult> =>
-		runPythonCommand('authenticate', { email, password }),
-
-	checkAuth: (): Promise<AuthStatus> => runPythonCommand('check_auth'),
-
-	fetchSleep: (date: string): Promise<GarminResult<SleepData>> =>
-		runPythonCommand('fetch_sleep', { date }),
-
-	fetchActivity: (date: string): Promise<GarminResult<ActivityData>> =>
-		runPythonCommand('fetch_activity', { date }),
-
-	fetchStress: (date: string): Promise<GarminResult<StressData>> =>
-		runPythonCommand('fetch_stress', { date }),
-
-	fetchBodyBattery: (date: string): Promise<GarminResult<unknown[]>> =>
-		runPythonCommand('fetch_body_battery', { date }),
-
-	fetchHeartRate: (date: string): Promise<GarminResult<unknown>> =>
-		runPythonCommand('fetch_heart_rate', { date }),
-
-	syncAll: (startDate: string, endDate: string): Promise<SyncAllResult> =>
-		runPythonCommand('sync_all', { start_date: startDate, end_date: endDate }),
-
-	fetchActivities: (date: string): Promise<GarminResult<Activity[]>> =>
-		runPythonCommand('fetch_activities', { date }),
-
-	fetchActivitiesBatch: (
-		startDate: string,
-		endDate: string
-	): Promise<GarminResult<Record<string, Activity[]>>> =>
-		runPythonCommand('fetch_activities_batch', { start_date: startDate, end_date: endDate })
-};
-
-interface Activity {
-	activityId: number;
-	activityName: string;
-	activityType: string;
-	startTimeLocal: string;
-	duration: number;
-	distance: number;
-	calories: number;
-	averageHR: number;
-	maxHR: number;
-	averageSpeed: number;
-	elevationGain: number;
-	steps: number;
+// Check if we should use HTTP or subprocess
+function useHttpService(): boolean {
+	return !!env.GARMIN_SERVICE_URL;
 }
 
-export type { Activity };
+export const garminClient = {
+	authenticate: async (email: string, password: string, userId?: string): Promise<AuthResult> => {
+		if (useHttpService()) {
+			return callHttpService('/authenticate', { email, password, user_id: userId });
+		}
+		return runPythonCommand('authenticate', { email, password, user_id: userId });
+	},
 
+	checkAuth: async (userId?: string): Promise<AuthStatus> => {
+		if (useHttpService()) {
+			return callHttpService('/check-auth', { user_id: userId });
+		}
+		return runPythonCommand('check_auth', { user_id: userId });
+	},
+
+	fetchSleep: async (date: string, userId?: string): Promise<GarminResult<SleepData>> => {
+		if (useHttpService()) {
+			return callHttpService('/sleep', { date, user_id: userId });
+		}
+		return runPythonCommand('fetch_sleep', { date, user_id: userId });
+	},
+
+	fetchActivity: async (date: string, userId?: string): Promise<GarminResult<ActivityData>> => {
+		if (useHttpService()) {
+			return callHttpService('/activity', { date, user_id: userId });
+		}
+		return runPythonCommand('fetch_activity', { date, user_id: userId });
+	},
+
+	fetchStress: async (date: string, userId?: string): Promise<GarminResult<StressData>> => {
+		if (useHttpService()) {
+			return callHttpService('/stress', { date, user_id: userId });
+		}
+		return runPythonCommand('fetch_stress', { date, user_id: userId });
+	},
+
+	fetchBodyBattery: async (date: string, userId?: string): Promise<GarminResult<unknown[]>> => {
+		if (useHttpService()) {
+			return callHttpService('/body-battery', { date, user_id: userId });
+		}
+		return runPythonCommand('fetch_body_battery', { date, user_id: userId });
+	},
+
+	fetchHeartRate: async (date: string, userId?: string): Promise<GarminResult<unknown>> => {
+		if (useHttpService()) {
+			return callHttpService('/heart-rate', { date, user_id: userId });
+		}
+		return runPythonCommand('fetch_heart_rate', { date, user_id: userId });
+	},
+
+	syncAll: async (startDate: string, endDate: string, userId?: string): Promise<SyncAllResult> => {
+		if (useHttpService()) {
+			return callHttpService('/sync-all', { start_date: startDate, end_date: endDate, user_id: userId });
+		}
+		return runPythonCommand('sync_all', { start_date: startDate, end_date: endDate, user_id: userId });
+	},
+
+	fetchActivities: async (date: string, userId?: string): Promise<GarminResult<Activity[]>> => {
+		if (useHttpService()) {
+			return callHttpService('/activities', { date, user_id: userId });
+		}
+		return runPythonCommand('fetch_activities', { date, user_id: userId });
+	},
+
+	fetchActivitiesBatch: async (
+		startDate: string,
+		endDate: string,
+		userId?: string
+	): Promise<GarminResult<Record<string, Activity[]>>> => {
+		if (useHttpService()) {
+			return callHttpService('/activities-batch', { start_date: startDate, end_date: endDate, user_id: userId });
+		}
+		return runPythonCommand('fetch_activities_batch', { start_date: startDate, end_date: endDate, user_id: userId });
+	}
+};
+
+export type { Activity };
 export type { SleepData, ActivityData, StressData, SyncAllResult };
