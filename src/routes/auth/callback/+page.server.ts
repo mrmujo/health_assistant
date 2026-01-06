@@ -1,7 +1,7 @@
 import { redirect } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
+import type { PageServerLoad } from './$types';
 
-export const GET: RequestHandler = async ({ url, locals }) => {
+export const load: PageServerLoad = async ({ url, locals }) => {
 	const code = url.searchParams.get('code');
 	const token_hash = url.searchParams.get('token_hash');
 	const type = url.searchParams.get('type');
@@ -52,6 +52,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		throw redirect(303, next);
 	}
 
-	// No valid auth parameters provided
-	throw redirect(303, '/login?error=no_code');
+	// No query parameters - page will load and handle hash tokens client-side
+	return {};
 };
