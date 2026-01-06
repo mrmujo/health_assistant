@@ -31,7 +31,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 					},
 					setAll(cookiesToSet) {
 						cookiesToSet.forEach(({ name, value, options }) => {
-							event.cookies.set(name, value, { ...options, path: '/' });
+							event.cookies.set(name, value, {
+								...options,
+								path: '/',
+								secure: true,
+								httpOnly: true,
+								sameSite: 'lax'
+							});
 						});
 					}
 				}
@@ -62,7 +68,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 		};
 
 		// Public routes that don't require authentication
-		const publicRoutes = ['/login', '/auth/callback', '/auth/confirm', '/setup', '/recover', '/api/verify-turnstile'];
+		const publicRoutes = ['/login', '/auth/callback', '/auth/confirm', '/setup', '/recover', '/api/verify-turnstile', '/auth/callback/set-session'];
 		const isPublicRoute = publicRoutes.some((route) => event.url.pathname.startsWith(route));
 
 		// Check auth for protected routes

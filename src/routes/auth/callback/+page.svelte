@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
-	import { createClient } from '$lib/supabase/client';
 
 	let status = $state('Processing login...');
 	let error = $state('');
@@ -11,27 +9,31 @@
 		const hash = window.location.hash;
 		if (hash && hash.includes('access_token')) {
 			try {
-				const supabase = createClient();
-
 				// Parse the hash fragment
 				const params = new URLSearchParams(hash.substring(1));
 				const access_token = params.get('access_token');
 				const refresh_token = params.get('refresh_token');
 
 				if (access_token) {
-					const { error: sessionError } = await supabase.auth.setSession({
-						access_token,
-						refresh_token: refresh_token || ''
+					// Send tokens to server to establish session with proper cookies
+					const response = await fetch('/auth/callback/set-session', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						body: JSON.stringify({ access_token, refresh_token })
 					});
 
-					if (sessionError) {
-						error = sessionError.message;
+					const result = await response.json();
+
+					if (!response.ok || result.error) {
+						error = result.error || 'Failed to establish session';
 						status = '';
 						return;
 					}
 
-					// Successfully logged in
-					goto('/setup');
+					// Successfully logged in - use full page navigation to ensure cookies are sent
+					window.location.href = result.redirect || '/setup';
 					return;
 				}
 			} catch (e) {
@@ -54,7 +56,7 @@
 		setTimeout(() => {
 			if (!error) {
 				// If still here after 3 seconds, redirect to login
-				goto('/login?error=callback_timeout');
+				window.location.href = '/login?error=callback_timeout';
 			}
 		}, 3000);
 	});
